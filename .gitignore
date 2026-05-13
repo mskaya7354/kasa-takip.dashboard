@@ -1,5 +1,14 @@
 __pycache__/
 *.pyc
+*.pyo
 *.xlsm
 *.xlsx
+*.xls
 chart.min.js
+server.log
+*.log
+start_err.txt
+start_out.txt
+stop.flag
+restart.flag
+.env
