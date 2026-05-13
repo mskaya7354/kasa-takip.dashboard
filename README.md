@@ -8,9 +8,23 @@ Gerçek bir iş ihtiyacı için yapıldı: muhasebe Excel'de kayıt tutuyor, yö
 
 ## Ekran görüntüleri
 
-> Çalışan dashboard'dan alınan ekran görüntüleri; finansal rakamlar gizlilik için bulanıklaştırılmıştır.
+> Çalışan dashboard'dan alınan ekran görüntüleri; finansal veriler gizlilik için bulanıklaştırılmıştır. Tasarım ve layout görünürdür.
 
-![Dashboard](docs/screenshots/dashboard.png)
+**Özet ekranı** — KPI'lar, nakit akışı, banka bakiyeleri
+
+![Özet](docs/screenshots/01_ozet.png)
+
+**Kredi kartları ve çek portföyü** — limit/borç oranı, çek vade listesi
+
+![Kredi & Çek](docs/screenshots/02_kredi_cek.png)
+
+**Vade takvimi ve uyarılar** — günlük işlem yoğunluğu, gecikmiş kredi kartı uyarıları
+
+![Takvim](docs/screenshots/03_takvim.png)
+
+**Ödeme analizi ve son işlemler** — ödeme türü dağılımı, en çok kullanılan banka, ay karşılaştırma, işlem tablosu
+
+![İşlemler](docs/screenshots/04_islemler.png)
 
 ## Mimari
 
