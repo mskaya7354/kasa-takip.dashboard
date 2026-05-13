@@ -910,8 +910,8 @@ BASE = Path(__file__).parent
 security = HTTPBasic()
 
 def verify(credentials: HTTPBasicCredentials = Depends(security)):
-    ok_user = secrets.compare_digest(credentials.username, os.environ.get("KASA_USER", "kasa"))
-    ok_pass = secrets.compare_digest(credentials.password, os.environ.get("KASA_PASS", "kasa2026"))
+    ok_user = secrets.compare_digest(credentials.username, os.environ.get("KASA_USER", "CHANGE-ME-USER"))
+    ok_pass = secrets.compare_digest(credentials.password, os.environ.get("KASA_PASS", "CHANGE-ME-PASS"))
     if not (ok_user and ok_pass):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Yetkisiz", headers={"WWW-Authenticate": "Basic"})
@@ -1024,11 +1024,11 @@ def main():
     pa.add_argument("--port", type=int, default=8765)
     pa.add_argument("--host", default="0.0.0.0")
     pa.add_argument("--polling", action="store_true")
-    pa.add_argument("--user", default="kasa")
-    pa.add_argument("--password", default="kasa2026")
+    pa.add_argument("--user", default=None, help="Basic Auth kullanici - KASA_USER env var ile de verilebilir")
+    pa.add_argument("--password", default=None, help="Basic Auth sifresi - KASA_PASS env var ile de verilebilir")
     a = pa.parse_args()
-    os.environ["KASA_USER"] = a.user
-    os.environ["KASA_PASS"] = a.password
+    if a.user: os.environ["KASA_USER"] = a.user
+    if a.password: os.environ["KASA_PASS"] = a.password
     excel_path = os.path.abspath(a.file)
     if not os.path.exists(excel_path):
         log.error(f"Dosya yok: {excel_path}")

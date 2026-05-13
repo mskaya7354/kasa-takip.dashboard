@@ -80,14 +80,15 @@ Her PC bağımsız çalışır, ancak ortak Excel'i izlediği için **veri tutar
 ```bash
 pip install -r requirements.txt
 
-# Tek makinede çalıştır (auth varsayılan: kasa / kasa2026)
-python server.py --file "/path/to/Kasa_Takip.xlsm" --port 8765 --polling
+# Auth'u ortam değişkenleri ile ayarla (varsayılanı kullanma!)
+set KASA_USER=<kullanici-adi>
+set KASA_PASS=<guclu-sifre>
 
-# Kimliği özelleştir
-set KASA_USER=admin
-set KASA_PASS=guclu-sifre-2026
-python server.py --file "..." --port 8765 --polling
+# Çalıştır
+python server.py --file "/path/to/Kasa_Takip.xlsm" --port 8765 --polling
 ```
+
+> ⚠️ `server.py` içinde fallback default değerler vardır ama bunları ASLA üretimde kullanmayın. `KASA_USER` ve `KASA_PASS` env var'larını mutlaka tanımlayın.
 
 Ya da `baslat.bat`'taki `EXCEL_PATH` değişkenini düzenleyip çift tıkla.
 
@@ -104,10 +105,10 @@ Dashboard: `http://kasa.local:8765` (mDNS yayını) ya da `http://<bilgisayar-ip
 
 ### Ortam değişkenleri
 
-| Değişken | Varsayılan | Açıklama |
-|----------|------------|----------|
-| `KASA_USER` | `kasa` | Basic Auth kullanıcı adı |
-| `KASA_PASS` | `kasa2026` | Basic Auth şifresi — **mutlaka değiştirin** |
+| Değişken | Açıklama |
+|----------|----------|
+| `KASA_USER` | Basic Auth kullanıcı adı (mutlaka ayarla) |
+| `KASA_PASS` | Basic Auth şifresi (mutlaka ayarla) |
 
 ## Yardımcı betikler
 
