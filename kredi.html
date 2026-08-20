@@ -107,6 +107,23 @@
   .tx tbody tr:last-child td{border-bottom:0}
   .tx td.num{text-align:right;font-family:var(--mono);white-space:nowrap}
 
+  .filter-row{display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center;margin-bottom:var(--sp-5)}
+  .filter-row input[type=text]{flex:1.4;min-width:160px}
+  .seg{display:flex;gap:2px;background:var(--paper-2);border-radius:8px;padding:3px;border:1px solid var(--rule)}
+  .seg button{font-size:11.5px;padding:6px 11px;border-radius:6px;color:var(--muted);font-weight:500}
+  .seg button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow-sm)}
+  .msel{position:relative;display:inline-block}
+  .msel-btn{display:inline-flex;align-items:center;gap:6px;min-width:140px;justify-content:space-between}
+  .msel-caret{font-size:10px;color:var(--muted)}
+  .msel-panel{position:absolute;top:calc(100% + 4px);left:0;z-index:40;background:var(--card);border:1px solid var(--rule);border-radius:10px;box-shadow:0 6px 20px rgba(20,19,15,.12);min-width:200px;max-width:300px;padding:8px}
+  .msel-actions{display:flex;gap:6px;padding-bottom:6px;margin-bottom:6px;border-bottom:1px solid var(--rule)}
+  .msel-actions button{flex:1;font-size:11px;padding:5px 8px;border-radius:6px;border:1px solid var(--rule);background:var(--paper-2);color:var(--ink-2)}
+  .msel-actions button:hover{border-color:var(--rule-strong)}
+  .msel-list{max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:1px}
+  .msel-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:12.5px;color:var(--ink-2);cursor:pointer}
+  .msel-item:hover{background:var(--paper-2)}
+  .msel-item input{cursor:pointer}
+  .msel-item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .kredi-item .bank-row{grid-template-columns:minmax(0,1.3fr) minmax(90px,140px) minmax(110px,auto)}
   .kredi-item .chev{display:inline-block;width:12px;color:var(--muted-2);transition:transform 160ms;flex-shrink:0}
   .kredi-item.open .chev{transform:rotate(90deg)}
@@ -175,9 +192,27 @@
             <div class="ttl">Kredi <em>Listesi</em></div>
             <div class="sub" id="kredi-sub">&mdash;</div>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <select id="kredi-tur-filter" onchange="renderKrediPanel()" class="ddl"><option value="all">T&uuml;m t&uuml;rler</option></select>
-            <select id="kredi-banka-filter" onchange="renderKrediPanel()" class="ddl"><option value="all">T&uuml;m bankalar</option></select>
+          <button class="back-link" style="border:1px solid var(--rule);padding:6px 12px" onclick="resetKrediFilters()">Sıfırla</button>
+        </div>
+
+        <div class="filter-row">
+          <input type="text" id="k-search" class="ddl" placeholder="Banka, kod, kullandırım ara&hellip;" oninput="renderKrediPanel()">
+          <div class="seg" id="k-durum-seg">
+            <button class="on" data-v="all">Tümü</button><button data-v="ÖDENDİ">Tamamen Ödendi</button><button data-v="BEKLİYOR">Bekleyen Var</button>
+          </div>
+          <div class="msel" id="k-tur-msel">
+            <button type="button" class="ddl msel-btn" onclick="toggleKMsel('tur',event)"><span id="k-tur-label">Tüm türler</span><span class="msel-caret">&#9662;</span></button>
+            <div class="msel-panel" id="k-tur-panel" style="display:none">
+              <div class="msel-actions"><button type="button" onclick="kMselSelectAll('tur')">Tümünü seç</button><button type="button" onclick="kMselClearAll('tur')">Temizle</button></div>
+              <div class="msel-list" id="k-tur-list"></div>
+            </div>
+          </div>
+          <div class="msel" id="k-banka-msel">
+            <button type="button" class="ddl msel-btn" onclick="toggleKMsel('banka',event)"><span id="k-banka-label">Tüm bankalar</span><span class="msel-caret">&#9662;</span></button>
+            <div class="msel-panel" id="k-banka-panel" style="display:none">
+              <div class="msel-actions"><button type="button" onclick="kMselSelectAll('banka')">Tümünü seç</button><button type="button" onclick="kMselClearAll('banka')">Temizle</button></div>
+              <div class="msel-list" id="k-banka-list"></div>
+            </div>
           </div>
         </div>
 
@@ -246,6 +281,36 @@ const KREDI_TYPE_KEYWORDS = [
   [normTR2('MURABAHA'), 'Murabaha'], [normTR2('KGF'), 'KGF'], [normTR2('KFK'), 'KFK']
 ];
 let KREDI_DATA = [], krediNotlar = {}, krediExpanded = {}, lastKrediMtime = null;
+const kMselSelected = { tur: new Set(), banka: new Set() };
+
+document.addEventListener("click", () => { $("k-tur-panel").style.display = "none"; $("k-banka-panel").style.display = "none"; });
+["k-tur-panel","k-banka-panel"].forEach(id => $(id).addEventListener("click", e => e.stopPropagation()));
+function toggleKMsel(which, e) { if (e) e.stopPropagation(); const p = $(`k-${which}-panel`); const open = p.style.display !== "none"; $("k-tur-panel").style.display="none"; $("k-banka-panel").style.display="none"; p.style.display = open ? "none" : "block"; }
+function kMselToggle(which, cb) { if (cb.checked) kMselSelected[which].add(cb.value); else kMselSelected[which].delete(cb.value); updateKMselLabel(which); renderKrediPanel(); }
+function kMselSelectAll(which) { document.querySelectorAll(`#k-${which}-list input`).forEach(cb => { cb.checked = true; kMselSelected[which].add(cb.value); }); updateKMselLabel(which); renderKrediPanel(); }
+function kMselClearAll(which) { document.querySelectorAll(`#k-${which}-list input`).forEach(cb => { cb.checked = false; }); kMselSelected[which].clear(); updateKMselLabel(which); renderKrediPanel(); }
+function updateKMselLabel(which, total) {
+  total = total ?? document.querySelectorAll(`#k-${which}-list input`).length;
+  const sel = kMselSelected[which].size;
+  $(`k-${which}-label`).textContent = (sel === total) ? (which==='tur'?'Tüm türler':'Tüm bankalar') : `${sel}/${total} seçili`;
+}
+$("k-durum-seg").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; [...e.currentTarget.children].forEach(x=>x.classList.remove("on")); b.classList.add("on"); renderKrediPanel(); });
+function resetKrediFilters() {
+  $("k-search").value = "";
+  $("k-durum-seg").querySelectorAll("button").forEach(b=>b.classList.toggle("on", b.dataset.v==="all"));
+  kMselSelected.tur.clear(); kMselSelected.banka.clear();
+  updateKrediFilterOptions();
+  renderKrediPanel();
+}
+function updateKrediFilterOptions() {
+  const turler = [...new Set(KREDI_DATA.map(k=>k.tur))].sort((a,b)=>a.localeCompare(b,'tr'));
+  const bankalar = [...new Set(KREDI_DATA.map(k=>k.banka))].sort((a,b)=>a.localeCompare(b,'tr'));
+  if (kMselSelected.tur.size === 0) turler.forEach(t=>kMselSelected.tur.add(t));
+  if (kMselSelected.banka.size === 0) bankalar.forEach(b=>kMselSelected.banka.add(b));
+  $("k-tur-list").innerHTML = turler.map(t => `<label class="msel-item"><input type="checkbox" value="${t.replace(/"/g,'&quot;')}" ${kMselSelected.tur.has(t)?'checked':''} onchange="kMselToggle('tur', this)"><span>${t}</span></label>`).join("");
+  $("k-banka-list").innerHTML = bankalar.map(b => `<label class="msel-item"><input type="checkbox" value="${b.replace(/"/g,'&quot;')}" ${kMselSelected.banka.has(b)?'checked':''} onchange="kMselToggle('banka', this)"><span>${b}</span></label>`).join("");
+  updateKMselLabel('tur', turler.length); updateKMselLabel('banka', bankalar.length);
+}
 
 function normTR2(s) {
   var t = String(s || '').trim().toUpperCase();
@@ -379,10 +444,7 @@ async function fetchAndRenderKredi() {
     if (KREDI_DATA.length === 0) throw new Error("Dosyada okunabilir kredi sayfası bulunamadı.");
     $("loading").style.display = "none"; $("content").style.display = "block";
     $("kredi-yaklasan-panel").style.display = "block";
-    const turler = [...new Set(KREDI_DATA.map(k=>k.tur))].sort((a,b)=>a.localeCompare(b,'tr'));
-    const bankalar = [...new Set(KREDI_DATA.map(k=>k.banka))].sort((a,b)=>a.localeCompare(b,'tr'));
-    $("kredi-tur-filter").innerHTML = '<option value="all">Tüm türler</option>' + turler.map(t=>`<option value="${t}">${t}</option>`).join("");
-    $("kredi-banka-filter").innerHTML = '<option value="all">Tüm bankalar</option>' + bankalar.map(b=>`<option value="${b}">${b}</option>`).join("");
+    updateKrediFilterOptions();
     renderKrediPanel();
   } catch (e) {
     console.error('Kredi verisi okunamadı', e);
@@ -394,8 +456,19 @@ async function fetchAndRenderKredi() {
 
 function renderKrediPanel() {
   if (!KREDI_DATA.length) return;
-  const tur = $("kredi-tur-filter").value, banka = $("kredi-banka-filter").value;
-  const list = KREDI_DATA.filter(k => (tur==='all'||k.tur===tur) && (banka==='all'||k.banka===banka));
+  const search = ($("k-search").value||'').toLowerCase().trim();
+  const durum = $("k-durum-seg").querySelector(".on")?.dataset.v || "all";
+  const list = KREDI_DATA.filter(k => {
+    if (kMselSelected.tur.size && !kMselSelected.tur.has(k.tur)) return false;
+    if (kMselSelected.banka.size && !kMselSelected.banka.has(k.banka)) return false;
+    if (durum === 'ÖDENDİ' && k.bekleyenSayisi > 0) return false;
+    if (durum === 'BEKLİYOR' && k.bekleyenSayisi === 0) return false;
+    if (search) {
+      const hay = (k.banka+' '+(k.krediKodu||'')+' '+(krediGetEfektifKullandirim(k)||'')+' '+k.tur).toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
   $("kredi-sub").textContent = `${list.length} kredi` + (list.length!==KREDI_DATA.length ? ` (${KREDI_DATA.length} toplam)` : '');
   $("kredi-stat-finansman").textContent = fmtTL(list.reduce((s,k)=>s+(k.finansmanTutari||0),0));
   $("kredi-stat-odenen").textContent = fmtTL(list.reduce((s,k)=>s+(k.odenenTutar||0),0));
