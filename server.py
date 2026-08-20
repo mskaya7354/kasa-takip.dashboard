@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 import uvicorn
+from pydantic import BaseModel
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.middleware.cors import CORSMiddleware
@@ -874,7 +875,53 @@ class CM:
 mgr = CM()
 latest = {}
 excel_path = ""
+kredi_path = ""
 _loop = None
+
+
+# ---------- Kredi dosyasi -- ham dosya servisi ----------
+# Parse burada YAPILMAZ: tarayici zaten yazilmis/test edilmis JS ile (parseKrediWorkbook)
+# kendi icinde ayristirir. Sunucu sadece dosyayi ve degisiklik zamanini sunar.
+def _kredi_mtime():
+    try:
+        return os.path.getmtime(kredi_path) if kredi_path and os.path.exists(kredi_path) else None
+    except Exception:
+        return None
+
+
+KREDI_NOTLAR_PATH = Path(__file__).parent / "kredi_notlar.json"
+_kredi_notlar_lock = threading.Lock()
+
+def _load_kredi_notlar():
+    try:
+        if KREDI_NOTLAR_PATH.exists():
+            with _kredi_notlar_lock:
+                return json.loads(KREDI_NOTLAR_PATH.read_text(encoding="utf-8"))
+    except Exception as e:
+        log.error(f"kredi_notlar okunamadi: {e}")
+    return {}
+
+def _save_kredi_notlar(d):
+    try:
+        with _kredi_notlar_lock:
+            KREDI_NOTLAR_PATH.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+        return True
+    except Exception as e:
+        log.error(f"kredi_notlar yazilamadi: {e}")
+        return False
+
+
+def _wait_for_file(path, tries=5, delay=2):
+    """Dosya (ozellikle bir automount'un ilk erisimde tetiklenme gecikmesi
+    yuzunden) hemen gorunmeyebilir -- birkac kez kisa bekleyerek dene.
+    2026-08-20: kasa.service bu kontrol yokken 34+ saat crash-loop'a girdi
+    (mount gecici olarak yoktu, surec her seferinde sert cikiyordu)."""
+    for i in range(tries):
+        if os.path.exists(path):
+            return True
+        log.warning(f"Dosya henuz yok (deneme {i+1}/{tries}): {path}")
+        time.sleep(delay)
+    return False
 
 
 class FH(FileSystemEventHandler):
@@ -907,7 +954,12 @@ async def _reload():
     global latest
     await asyncio.sleep(1.5)
     try:
-        latest = parse_excel(excel_path)
+        if os.path.exists(excel_path):
+            latest = parse_excel(excel_path)
+        else:
+            log.error(f"Reload: dosya yok: {excel_path}")
+            latest = {**latest, "hata": f"Dosya bulunamadi: {excel_path}"}
+        latest["kredi_mtime"] = _kredi_mtime()
         latest["tip"] = "guncelleme"
         await mgr.broadcast(latest)
     except Exception as e:
@@ -1073,6 +1125,42 @@ async def manifest():
     return JSONResponse({"hata": "manifest.json yok"}, status_code=404)
 
 
+@app.get("/xlsx.full.min.js")
+async def xlsxjs():
+    p = BASE / "xlsx.full.min.js"
+    if p.exists(): return FileResponse(p, media_type="application/javascript")
+    return PlainTextResponse("// xlsx.full.min.js not found", status_code=404)
+
+
+@app.get("/api/kredi-file")
+async def kredi_file(credentials: HTTPBasicCredentials = Depends(verify)):
+    if not kredi_path or not os.path.exists(kredi_path):
+        return JSONResponse({"hata": "Kredi dosyasi henuz yapilandirilmadi veya bulunamadi"}, status_code=404)
+    return FileResponse(kredi_path, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+@app.get("/api/kredi-notlar")
+async def kredi_notlar_get(credentials: HTTPBasicCredentials = Depends(verify)):
+    return JSONResponse(_load_kredi_notlar())
+
+
+class KrediNotIn(BaseModel):
+    sheet: str
+    metin: str
+
+
+@app.post("/api/kredi-notlar")
+async def kredi_notlar_post(body: KrediNotIn, credentials: HTTPBasicCredentials = Depends(verify)):
+    d = _load_kredi_notlar()
+    if body.metin.strip():
+        d[body.sheet] = body.metin.strip()
+    else:
+        d.pop(body.sheet, None)
+    if not _save_kredi_notlar(d):
+        return JSONResponse({"hata": "kaydedilemedi"}, status_code=500)
+    return JSONResponse({"durum": "ok", "notlar": d})
+
+
 @app.websocket("/ws")
 async def ws_ep(ws: WebSocket):
     await mgr.connect(ws)
@@ -1103,9 +1191,10 @@ def main():
     if sys.stderr is None:
         sys.stderr = sys.stdout
 
-    global excel_path, latest
+    global excel_path, kredi_path, latest
     pa = argparse.ArgumentParser()
     pa.add_argument("--file", required=True)
+    pa.add_argument("--kredi-file", default=None, help="Kredi/leasing/teminat mektubu takip dosyasi (opsiyonel)")
     pa.add_argument("--port", type=int, default=8765)
     pa.add_argument("--host", default="0.0.0.0")
     pa.add_argument("--polling", action="store_true")
@@ -1117,21 +1206,40 @@ def main():
     os.environ["KASA_USER"] = a.user
     os.environ["KASA_PASS"] = a.password
     excel_path = os.path.abspath(a.file)
-    if not os.path.exists(excel_path):
-        log.error(f"Dosya yok: {excel_path}")
-        raise SystemExit(1)
+    if a.kredi_file:
+        kredi_path = os.path.abspath(a.kredi_file)
+
+    # 2026-08-20: eskiden dosya yoksa SystemExit(1) ile sert cikiyordu -- bir SMB/automount
+    # mount'u boot sirasinda gecikirse (veya gecici olarak erisilemez olursa) systemd her
+    # ~10 saniyede bir yeniden baslatip surekli coken bir donguye giriyordu (34+ saat fark
+    # edilmeden surdu). Simdi: birkac kez kisa bekleyerek dene, hala yoksa CRASH ETME --
+    # sunucu yine de baslar, dashboard hata durumunu gosterir (parse_excel exception'i zaten
+    # ayni sekilde ele aliniyordu, tutarli hale getirildi).
+    if not _wait_for_file(excel_path):
+        log.error(f"Dosya birkac denemeden sonra hala yok: {excel_path} -- sunucu yine de baslatiliyor")
+
     log.info("Ilk yukleme...")
     try:
-        latest = parse_excel(excel_path)
-        latest["tip"] = "ilk"
+        if os.path.exists(excel_path):
+            latest = parse_excel(excel_path)
+            latest["tip"] = "ilk"
+        else:
+            latest = {"hata": f"Dosya bulunamadi: {excel_path}", "kpi": {}}
     except Exception as e:
         log.error(f"Hata: {e}")
         latest = {"hata": str(e), "kpi": {}}
+    latest["kredi_mtime"] = _kredi_mtime()
+
     wd = str(Path(excel_path).parent)
     h = FH()
     ob = PollingObserver(timeout=3)
-    ob.schedule(h, wd, recursive=False)
-    ob.start()
+    ob_started = False
+    try:
+        ob.schedule(h, wd, recursive=False)
+        ob.start()
+        ob_started = True
+    except Exception as e:
+        log.error(f"Dosya izleme baslatilamadi ({wd}): {e} -- sunucu izlemesiz devam ediyor, /api/refresh ile elle yenilenebilir")
     threading.Thread(target=_mdns_register, args=(a.port,), daemon=True).start()
     proto = "https" if (a.ssl_cert and a.ssl_key) else "http"
     log.info(f"Dashboard: {proto}://localhost:{a.port}")
@@ -1142,8 +1250,9 @@ def main():
             kwargs["ssl_keyfile"] = a.ssl_key
         uvicorn.run(app, **kwargs)
     finally:
-        ob.stop()
-        ob.join()
+        if ob_started:
+            ob.stop()
+            ob.join()
 
 
 if __name__ == "__main__":
