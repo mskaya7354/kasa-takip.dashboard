@@ -1183,6 +1183,22 @@ async def index(credentials: HTTPBasicCredentials = Depends(verify)):
     return p.read_text(encoding="utf-8")
 
 
+@app.get("/kredi", response_class=HTMLResponse)
+async def kredi_page(credentials: HTTPBasicCredentials = Depends(verify)):
+    p = BASE / "kredi.html"
+    if not p.exists():
+        return HTMLResponse("<h1>kredi.html bulunamadi</h1>", 404)
+    return p.read_text(encoding="utf-8")
+
+
+@app.get("/odeme-takip", response_class=HTMLResponse)
+async def odeme_takip_page(credentials: HTTPBasicCredentials = Depends(verify)):
+    p = BASE / "odeme-takip.html"
+    if not p.exists():
+        return HTMLResponse("<h1>odeme-takip.html bulunamadi</h1>", 404)
+    return p.read_text(encoding="utf-8")
+
+
 def main():
     import sys
     # pythonw.exe ile sys.stdout/stderr None olur, uvicorn crash yapar -- log dosyasina yonlendir

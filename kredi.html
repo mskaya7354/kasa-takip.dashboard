@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kasa Takip &mdash; Kredi Portf&ouml;y&uuml;</title>
+<meta name="theme-color" content="#14130f" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preload" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+<noscript><link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" /></noscript>
+<script src="/chart.min.js" defer></script>
+<script src="/xlsx.full.min.js" defer></script>
+<style>
+  :root {
+    --paper:#faf9f6; --paper-2:#f3f1ea; --card:#ffffff;
+    --ink:#14130f; --ink-2:#3a3832; --muted:#7a7770; --muted-2:#a8a49a;
+    --rule:#e8e4d8; --rule-strong:#d6d1c0;
+    --accent:oklch(0.62 0.12 75); --accent-soft:oklch(0.94 0.04 75); --accent-ink:oklch(0.38 0.09 75);
+    --positive:oklch(0.58 0.1 155); --positive-soft:oklch(0.95 0.04 155);
+    --negative:oklch(0.55 0.14 25); --negative-soft:oklch(0.95 0.04 25);
+    --info:oklch(0.55 0.1 250); --info-soft:oklch(0.95 0.03 250);
+    --serif:"Instrument Serif","Times New Roman",serif;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,monospace;
+    --r-sm:6px; --r-md:10px; --r-lg:14px;
+    --shadow-sm:0 1px 0 rgba(20,19,15,.04),0 1px 2px rgba(20,19,15,.03);
+    --p-pad:22px 24px; --p-head-mb:18px;
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  table{border-collapse:collapse;width:100%}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .muted{color:var(--muted)}
+
+  .app{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+  .sidebar{background:var(--paper);border-right:1px solid var(--rule);padding:22px 18px;display:flex;flex-direction:column;gap:28px;position:sticky;top:0;height:100vh}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand-mark{width:28px;height:28px;border-radius:7px;background:var(--ink);color:var(--paper);display:grid;place-items:center;font-family:var(--serif);font-size:17px;font-style:italic}
+  .brand-meta h1{font-size:14px;font-weight:600;letter-spacing:-.01em}
+  .brand-meta .sub{font-size:11px;color:var(--muted);font-family:var(--mono)}
+  .back-link{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;color:var(--ink-2);text-decoration:none;font-size:13px;font-weight:500;border:1px solid var(--rule);transition:border-color 120ms}
+  .back-link:hover{border-color:var(--rule-strong);background:var(--paper-2)}
+  .side-foot{margin-top:auto;font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:4px;padding:0 10px}
+  .live{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono)}
+  .live .led{width:6px;height:6px;border-radius:50%;background:var(--positive);box-shadow:0 0 0 3px oklch(.58 .1 155 / .15);animation:pulse 2.4s infinite}
+  .live.warn .led{background:var(--accent);box-shadow:0 0 0 3px oklch(.62 .12 75 / .15)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  main{padding:28px 36px 80px;max-width:1200px}
+  .topbar{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid var(--rule);padding-bottom:20px;margin-bottom:28px;gap:16px;flex-wrap:wrap}
+  .topbar .kicker{font-family:var(--mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.14em}
+  .topbar h2{font-family:var(--serif);font-size:38px;line-height:1;margin-top:6px;letter-spacing:-.02em}
+  .topbar h2 em{font-style:italic;color:var(--accent-ink)}
+  .ddl{padding:6px 10px;border-radius:8px;border:1px solid var(--rule);background:var(--card);font-size:12.5px;font-weight:500;color:var(--ink-2);font-family:var(--sans);cursor:pointer;outline:none}
+  .ddl:hover{border-color:var(--rule-strong)}
+
+  .panel{background:var(--card);border:1px solid var(--rule);border-radius:var(--r-lg);padding:var(--p-pad);box-shadow:var(--shadow-sm)}
+  .panel-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:var(--p-head-mb);gap:var(--sp-3);flex-wrap:wrap}
+  .panel-head > div:first-child{min-width:0;flex:1}
+  .panel-head .ttl{font-family:var(--serif);font-size:22px;letter-spacing:-.01em;line-height:1.15}
+  .panel-head .ttl em{font-style:italic;color:var(--accent-ink)}
+  .panel-head .sub{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.4}
+
+  .chk-hero{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);margin-bottom:var(--sp-5)}
+  .chk-hero-tile{border-radius:var(--r-md);padding:var(--sp-3) var(--sp-4);border:1px solid var(--rule)}
+  .chk-hero-tile.wait{background:var(--accent-soft);border-color:oklch(0.62 0.12 75 / .3)}
+  .chk-hero-tile.ok{background:var(--positive-soft);border-color:oklch(0.58 0.1 155 / .3)}
+  .chk-hero-lbl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;color:var(--muted);margin-bottom:4px}
+  .chk-hero-tile.wait .chk-hero-lbl{color:var(--accent-ink)}
+  .chk-hero-tile.ok .chk-hero-lbl{color:var(--positive)}
+  .chk-hero-val{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--ink)}
+
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-5);margin-bottom:var(--sp-6)}
+  .chart-wrap{position:relative;height:260px}
+  .chart-wrap.short{height:200px}
+
+  .bank-list{display:flex;flex-direction:column;gap:0}
+  .bank-item{padding:var(--sp-3) 0;border-bottom:1px dashed var(--rule)}
+  .bank-item:last-child{border-bottom:0}
+  .bank-row{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(90px,140px) minmax(110px,auto);align-items:center;gap:var(--sp-4);min-height:40px;cursor:pointer}
+  .bank-row .name{display:flex;align-items:center;gap:var(--sp-3);min-width:0}
+  .bank-row .mark{width:32px;height:32px;border-radius:var(--r-sm);background:var(--paper-2);display:grid;place-items:center;font-family:var(--serif);font-style:italic;color:var(--ink-2);font-size:15px;flex-shrink:0}
+  .bank-row .name .nm{font-weight:500;font-size:13px;line-height:1.3}
+  .bank-row .name .sub{font-size:11px;color:var(--muted);margin-top:2px;font-family:var(--mono)}
+  .bank-row .amount{text-align:right;min-width:0}
+  .bank-row .amount .big{font-family:var(--mono);font-size:14px;font-weight:500;color:var(--ink)}
+  .bank-row .amount .small{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px}
+  .progress{height:6px;background:var(--paper-2);border-radius:3px;position:relative;overflow:hidden}
+  .progress .fill{position:absolute;left:0;top:0;bottom:0;background:var(--ink);border-radius:inherit}
+  .progress .fill.positive{background:var(--positive)}
+  .bar-wrap{display:flex;flex-direction:column;gap:4px}
+  .bar-legend{font-size:10.5px;color:var(--muted);font-family:var(--mono)}
+
+  .badge{display:inline-flex;align-items:center;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;font-family:var(--mono);background:var(--paper-2);color:var(--ink-2);letter-spacing:.03em;border:1px solid var(--rule);white-space:nowrap}
+  .status-badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:4px;font-size:10.5px;font-weight:500;font-family:var(--mono)}
+  .status-badge.ok{color:var(--positive);background:var(--positive-soft)}
+  .status-badge.wait{color:var(--accent-ink);background:var(--accent-soft)}
+
+  .tx{font-size:13px;width:100%}
+  .tx thead th{text-align:left;padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--rule);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .tx thead th.num{text-align:right}
+  .tx tbody td{padding:var(--sp-3);border-bottom:1px solid var(--rule)}
+  .tx tbody tr:last-child td{border-bottom:0}
+  .tx td.num{text-align:right;font-family:var(--mono);white-space:nowrap}
+
+  .kredi-item .bank-row{grid-template-columns:minmax(0,1.3fr) minmax(90px,140px) minmax(110px,auto)}
+  .kredi-item .chev{display:inline-block;width:12px;color:var(--muted-2);transition:transform 160ms;flex-shrink:0}
+  .kredi-item.open .chev{transform:rotate(90deg)}
+  .kredi-detail{display:none;padding:var(--sp-3) 0 var(--sp-2) 44px;border-top:1px dashed var(--rule);margin-top:var(--sp-2)}
+  .kredi-item.open .kredi-detail{display:block}
+  .kredi-meta{display:flex;gap:var(--sp-4);flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:var(--sp-3)}
+  .kredi-meta b{color:var(--ink-2);font-family:var(--mono);font-weight:500}
+  .kredi-not{display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:var(--sp-3)}
+  .kredi-not .txt{color:var(--ink-2)}
+  .kredi-not .txt.empty{color:var(--muted-2);font-style:italic}
+  .kredi-not .edit-ic{color:var(--muted-2);cursor:pointer;font-size:11px}
+  .kredi-not .edit-ic:hover{color:var(--ink)}
+  .kredi-not input{font-size:12px;padding:4px 8px;border:1px solid var(--rule-strong);border-radius:6px;font-family:var(--sans);flex:1;max-width:320px}
+  table.tx.kredi-taksit{font-size:12px}
+  table.tx.kredi-taksit tbody tr.paid td{color:var(--muted)}
+
+  .empty-state{text-align:center;padding:var(--sp-6) var(--sp-3);color:var(--muted);font-size:12px}
+  .err-box{background:var(--negative-soft);border:1px solid var(--negative);border-radius:var(--r-md);padding:var(--sp-4) var(--sp-5);margin-bottom:var(--sp-5);color:var(--negative);font-family:var(--mono);font-size:12px;white-space:pre-wrap;display:none}
+  .loading{text-align:center;padding:60px 0;color:var(--muted)}
+  .loading .spin{width:24px;height:24px;border:2px solid var(--rule);border-top-color:var(--ink);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto var(--sp-3)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  @media(max-width:1100px){ .grid-2{grid-template-columns:1fr} .chk-hero{grid-template-columns:1fr} }
+  @media(min-width:768px) and (max-width:1024px) and (orientation:portrait), (max-width:820px){
+    .app{grid-template-columns:1fr}
+    .sidebar{position:sticky;top:0;z-index:50;height:auto;flex-direction:row;align-items:center;padding:var(--sp-2) var(--sp-4);gap:var(--sp-4);overflow-x:auto;border-right:0;border-bottom:1px solid var(--rule)}
+    .side-foot{display:none}
+    main{padding:var(--sp-4)}
+    .topbar h2{font-size:26px}
+  }
+  @media(max-width:480px){ main{padding:var(--sp-2)} .panel{padding:var(--sp-3)} }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">K</div>
+      <div class="brand-meta">
+        <h1>Kasa Takip</h1>
+        <div class="sub">Kredi Portf&ouml;y&uuml;</div>
+      </div>
+    </div>
+    <a class="back-link" href="/">&larr; Kasa'ya D&ouml;n</a>
+    <div class="side-foot">
+      <span class="live" id="live-ind"><span class="led"></span><span id="live-lbl">ba&#287;lan&#305;yor&hellip;</span></span>
+      <span class="mono">kredi dosyas&#305;.xlsx</span>
+    </div>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <div>
+        <div class="kicker">EDUCA DESIGN</div>
+        <h2>Kredi <em>Portf&ouml;y&uuml;</em></h2>
+      </div>
+    </div>
+
+    <div class="err-box" id="err-box"></div>
+    <div class="loading" id="loading"><div class="spin"></div>Kredi verisi y&uuml;kleniyor&hellip;</div>
+
+    <div id="content" style="display:none">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="ttl">Kredi <em>Listesi</em></div>
+            <div class="sub" id="kredi-sub">&mdash;</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <select id="kredi-tur-filter" onchange="renderKrediPanel()" class="ddl"><option value="all">T&uuml;m t&uuml;rler</option></select>
+            <select id="kredi-banka-filter" onchange="renderKrediPanel()" class="ddl"><option value="all">T&uuml;m bankalar</option></select>
+          </div>
+        </div>
+
+        <div class="chk-hero">
+          <div class="chk-hero-tile wait">
+            <div class="chk-hero-lbl">Toplam Finansman</div>
+            <div class="chk-hero-val" id="kredi-stat-finansman">&mdash;</div>
+          </div>
+          <div class="chk-hero-tile ok">
+            <div class="chk-hero-lbl">&Ouml;denen Taksit</div>
+            <div class="chk-hero-val" id="kredi-stat-odenen">&mdash;</div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="chart-wrap short"><canvas id="c-kredi-banka"></canvas></div>
+          <div class="chart-wrap short"><canvas id="c-kredi-tur"></canvas></div>
+        </div>
+
+        <div class="bank-list" id="kredi-list"></div>
+      </div>
+
+      <div class="panel" id="kredi-yaklasan-panel" style="margin-top:var(--sp-5);display:none">
+        <div class="panel-head">
+          <div>
+            <div class="ttl">Yakla&#351;an <em>Taksitler</em></div>
+            <div class="sub" id="kredi-yaklasan-sub">&Ouml;n&uuml;m&uuml;zdeki 30 g&uuml;n</div>
+          </div>
+        </div>
+        <table class="tx">
+          <thead><tr><th>Tarih</th><th>Banka</th><th>Kredi Kodu</th><th>T&uuml;r</th><th class="num">Tutar</th><th>Durum</th></tr></thead>
+          <tbody id="kredi-yaklasan-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmtTL = (v,d=0) => new Intl.NumberFormat("tr-TR",{minimumFractionDigits:d,maximumFractionDigits:d}).format(v||0)+" ₺";
+const fmtK = v => { const a=Math.abs(v||0); if(a>=1e9)return(v/1e9).toFixed(1)+"Mr"; if(a>=1e6)return(v/1e6).toFixed(1)+"M"; if(a>=1e3)return(v/1e3).toFixed(0)+"K"; return String(Math.round(v||0)); };
+const hasChart = () => typeof window.Chart !== "undefined";
+const pal = { ink:"#14130f", accent:"#9c7a3b", positive:"#4d8d65", negative:"#b0563a", muted:"#a8a49a", rule:"#e8e4d8" };
+const tt = { backgroundColor:"#14130f",titleColor:"#faf9f6",bodyColor:"#faf9f6",padding:10,cornerRadius:8,displayColors:false,
+  titleFont:{family:"Inter",weight:"600",size:11}, bodyFont:{family:"IBM Plex Mono",size:11} };
+function _initChartDefaults() {
+  if (hasChart() && !_initChartDefaults._done) {
+    Chart.defaults.font.family="Inter,sans-serif"; Chart.defaults.font.size=11; Chart.defaults.color="#7a7770"; Chart.defaults.borderColor=pal.rule;
+    _initChartDefaults._done = true;
+  }
+}
+const charts = {};
+function mkChart(id, cfg) {
+  _initChartDefaults();
+  if (!hasChart()) return;
+  if (charts[id]) { try { charts[id].destroy(); } catch(e){} delete charts[id]; }
+  const el = $(id); if (!el) return;
+  try { charts[id] = new Chart(el, cfg); } catch(e) { console.error(id, e); }
+}
+function setLive(state, lbl) { const el = $("live-ind"); el.className = "live " + state; $("live-lbl").textContent = lbl; }
+
+/* ============ Kredi parse mantığı (server.py'nin kasa dashboard.html'i ile AYNI, değiştirilmedi) ============ */
+const KREDI_TYPE_KEYWORDS = [
+  [normTR2('TEMİNAT MEKTUBU'), 'Teminat Mektubu'], [normTR2('LEASİNG'), 'Leasing'], [normTR2('LEASING'), 'Leasing'],
+  [normTR2('MURABAHA'), 'Murabaha'], [normTR2('KGF'), 'KGF'], [normTR2('KFK'), 'KFK']
+];
+let KREDI_DATA = [], krediNotlar = {}, krediExpanded = {}, lastKrediMtime = null;
+
+function normTR2(s) {
+  var t = String(s || '').trim().toUpperCase();
+  var map = { 'İ':'I','Ş':'S','Ğ':'G','Ü':'U','Ö':'O','Ç':'C' };
+  return t.replace(/[İŞĞÜÖÇ]/g, function(c){ return map[c]; });
+}
+function krediFormatDateLocal(d) {
+  if (!d) return '';
+  var dt = typeof d === 'string' ? new Date(d) : d;
+  if (isNaN(dt.getTime())) return '';
+  return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+}
+function krediParseTutar(raw) {
+  if (typeof raw === 'number') return raw;
+  if (!raw) return 0;
+  var s = String(raw).trim().replace(/[₺TL\s]/gi, '');
+  if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.');
+  else if (s.includes(',')) s = s.replace(',', '.');
+  var v = parseFloat(s);
+  return isNaN(v) ? 0 : v;
+}
+function krediDetectType(sheetName) {
+  var up = normTR2(sheetName);
+  for (var i = 0; i < KREDI_TYPE_KEYWORDS.length; i++) { if (up.indexOf(KREDI_TYPE_KEYWORDS[i][0]) !== -1) return KREDI_TYPE_KEYWORDS[i][1]; }
+  return 'Murabaha';
+}
+function krediExtractCodeAndBank(sheetName) {
+  var m = sheetName.trim().match(/[-\s]([0-9]+(?:-[0-9]+)?)$/);
+  var kod = m ? m[1] : null;
+  var base = m ? sheetName.slice(0, m.index) : sheetName;
+  var upBase = normTR2(base);
+  for (var i = 0; i < KREDI_TYPE_KEYWORDS.length; i++) { var idx = upBase.indexOf(KREDI_TYPE_KEYWORDS[i][0]); if (idx !== -1) { base = base.slice(0, idx); break; } }
+  base = base.replace(/[-\s]+$/, '').trim();
+  return { kod: kod, banka: base };
+}
+function krediParseDateAny(raw) {
+  if (raw === null || raw === undefined) return null;
+  if (raw instanceof Date) return isNaN(raw.getTime()) ? null : krediFormatDateLocal(raw);
+  var s = String(raw).trim();
+  var m = s.match(/^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})/);
+  if (m) return m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
+  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return m[1] + '-' + m[2].padStart(2,'0') + '-' + m[3].padStart(2,'0');
+  var d = new Date(s);
+  return isNaN(d.getTime()) ? null : krediFormatDateLocal(d);
+}
+function parseKrediWorkbook(workbook) {
+  var out = [];
+  var today = krediFormatDateLocal(new Date());
+  workbook.SheetNames.forEach(function(sheetName) {
+    var ws = workbook.Sheets[sheetName];
+    var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
+    if (!rows || rows.length === 0) return;
+    var tur = krediDetectType(sheetName);
+    var codeBank = krediExtractCodeAndBank(sheetName);
+    var meta = { maliyetAlanlari: [] };
+    var headerRowIdx = -1, isTeminat = false;
+    for (var i = 0; i < Math.min(rows.length, 14); i++) {
+      var row = rows[i]; if (!row) continue;
+      var key = normTR2(row[0]);
+      if (key.indexOf(normTR2('SIRA NO')) === 0 || key.indexOf(normTR2('TAKSİT NO')) === 0) { headerRowIdx = i; isTeminat = key.indexOf(normTR2('TAKSİT NO')) === 0; break; }
+      if (key.indexOf(normTR2('PROJE NO')) === 0) meta.projeNo = row[1];
+      else if (key.indexOf(normTR2('KULLANDIRIM TARİH')) === 0 || key.indexOf(normTR2('KULLANIM TARİH')) === 0) meta.kullandirimTarihi = krediParseDateAny(row[1]);
+      else if (key === normTR2('KULLANDIRIM')) meta.kullandirim = row[1] || row[2] || null;
+      else if (key.indexOf(normTR2('FİNANSMAN TUTARI')) === 0) meta.finansmanTutari = krediParseTutar(row[1]);
+      else if (key.indexOf(normTR2('AD SOYAD')) === 0 || key.indexOf(normTR2('ÜNVAN')) === 0) meta.unvan = row[1];
+      else if (key.indexOf(normTR2('TOPLAM KREDİ RİSKİ')) === 0) meta.finansmanTutari = krediParseTutar(row[1]);
+      else if (key.indexOf(normTR2('KREDİ AÇILIŞ TUTARI')) === 0) meta.finansmanTutari = krediParseTutar(row[1]);
+      else if (key.indexOf(normTR2('KREDİ HESAP NO')) === 0) meta.krediHesapNo = row[1];
+    }
+    if (headerRowIdx === -1) return;
+    var header = rows[headerRowIdx].map(function(h){ return normTR2(h); });
+    function col() {
+      for (var a = 0; a < arguments.length; a++) { var n = normTR2(arguments[a]); for (var c = 0; c < header.length; c++) if (header[c].indexOf(n) !== -1) return c; }
+      return -1;
+    }
+    var idxSira = col('SIRA NO','TAKSİT NO'), idxTarih = col('TAKSİT TARİHİ','TARİH'), idxTaksit = col('TAKSİT TUTARI'), idxDurum = col('ÖDEME DURUMU');
+    var taksitler = [];
+    for (var r = headerRowIdx + 1; r < rows.length; r++) {
+      var row2 = rows[r];
+      if (!row2 || row2.every(function(c){ return c === null || c === undefined; })) continue;
+      var siraVal = idxSira !== -1 ? row2[idxSira] : null;
+      var tarihVal = idxTarih !== -1 ? row2[idxTarih] : null;
+      var taksitVal = idxTaksit !== -1 ? row2[idxTaksit] : null;
+      var isTotalsRow = (siraVal == null) && (tarihVal == null) && (taksitVal != null);
+      if (isTotalsRow) break;
+      if ((siraVal == null) && (tarihVal == null)) continue;
+      var tarihIso = krediParseDateAny(tarihVal);
+      var durum = null;
+      if (idxDurum !== -1 && row2[idxDurum]) durum = normTR2(row2[idxDurum]).indexOf(normTR2('ÖDEND')) !== -1 ? 'ÖDENDİ' : 'BEKLİYOR';
+      else if (tarihIso) durum = tarihIso <= today ? 'ÖDENDİ' : 'BEKLİYOR';
+      taksitler.push({ sira: siraVal, tarih: tarihIso, taksitTutari: krediParseTutar(idxTaksit !== -1 ? row2[idxTaksit] : 0) || 0, durum: durum });
+    }
+    if (taksitler.length === 0) return;
+    var odenenSayisi = 0, bekleyenSayisi = 0, bekleyenTutar = 0, odenenTutar = 0;
+    taksitler.forEach(function(t) { if (t.durum === 'ÖDENDİ') { odenenSayisi++; odenenTutar += t.taksitTutari; } else { bekleyenSayisi++; bekleyenTutar += t.taksitTutari; } });
+    var kodFromName = codeBank.kod;
+    var krediKodu = kodFromName || (meta.projeNo != null ? String(meta.projeNo) : null);
+    var banka = codeBank.banka || meta.unvan || sheetName;
+    out.push({ sheet: sheetName, banka: banka, tur: tur, krediKodu: krediKodu, finansmanTutari: meta.finansmanTutari || null,
+      krediHesapNo: meta.krediHesapNo || null, kullandirim: meta.kullandirim || null, kullandirimTarihi: meta.kullandirimTarihi || null,
+      vadeAy: taksitler.length, odenenSayisi: odenenSayisi, bekleyenSayisi: bekleyenSayisi,
+      odenenTutar: Math.round(odenenTutar*100)/100, bekleyenTutar: Math.round(bekleyenTutar*100)/100, taksitler: taksitler });
+  });
+  return out;
+}
+
+function krediGetEfektifKullandirim(k) { return (krediNotlar[k.sheet] !== undefined && krediNotlar[k.sheet] !== '') ? krediNotlar[k.sheet] : k.kullandirim; }
+
+async function saveKrediNot(sheet, metin) {
+  try {
+    const r = await fetch('/api/kredi-notlar', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sheet, metin }) });
+    const d = await r.json();
+    if (d.notlar) krediNotlar = d.notlar;
+    renderKrediPanel();
+  } catch (e) { console.error('Kullandırım notu kaydedilemedi', e); }
+}
+
+async function fetchAndRenderKredi() {
+  $("loading").style.display = "block"; $("err-box").style.display = "none";
+  try {
+    const [fileRes, notlarRes] = await Promise.all([
+      fetch('/api/kredi-file', { credentials: 'include' }),
+      fetch('/api/kredi-notlar', { credentials: 'include' })
+    ]);
+    if (!fileRes.ok) throw new Error("Kredi dosyası henüz yapılandırılmamış (HTTP " + fileRes.status + ")");
+    krediNotlar = notlarRes.ok ? await notlarRes.json() : {};
+    const buf = await fileRes.arrayBuffer();
+    const workbook = XLSX.read(buf, { type: 'array', cellDates: true });
+    KREDI_DATA = parseKrediWorkbook(workbook);
+    if (KREDI_DATA.length === 0) throw new Error("Dosyada okunabilir kredi sayfası bulunamadı.");
+    $("loading").style.display = "none"; $("content").style.display = "block";
+    $("kredi-yaklasan-panel").style.display = "block";
+    const turler = [...new Set(KREDI_DATA.map(k=>k.tur))].sort((a,b)=>a.localeCompare(b,'tr'));
+    const bankalar = [...new Set(KREDI_DATA.map(k=>k.banka))].sort((a,b)=>a.localeCompare(b,'tr'));
+    $("kredi-tur-filter").innerHTML = '<option value="all">Tüm türler</option>' + turler.map(t=>`<option value="${t}">${t}</option>`).join("");
+    $("kredi-banka-filter").innerHTML = '<option value="all">Tüm bankalar</option>' + bankalar.map(b=>`<option value="${b}">${b}</option>`).join("");
+    renderKrediPanel();
+  } catch (e) {
+    console.error('Kredi verisi okunamadı', e);
+    $("loading").style.display = "none";
+    $("err-box").textContent = "Kredi verisi okunamadı: " + e.message;
+    $("err-box").style.display = "block";
+  }
+}
+
+function renderKrediPanel() {
+  if (!KREDI_DATA.length) return;
+  const tur = $("kredi-tur-filter").value, banka = $("kredi-banka-filter").value;
+  const list = KREDI_DATA.filter(k => (tur==='all'||k.tur===tur) && (banka==='all'||k.banka===banka));
+  $("kredi-sub").textContent = `${list.length} kredi` + (list.length!==KREDI_DATA.length ? ` (${KREDI_DATA.length} toplam)` : '');
+  $("kredi-stat-finansman").textContent = fmtTL(list.reduce((s,k)=>s+(k.finansmanTutari||0),0));
+  $("kredi-stat-odenen").textContent = fmtTL(list.reduce((s,k)=>s+(k.odenenTutar||0),0));
+  renderKrediCharts(list); renderKrediList(list); renderKrediYaklasan(list);
+}
+
+function renderKrediCharts(list) {
+  _initChartDefaults();
+  const byBanka = {}; list.forEach(k => { byBanka[k.banka] = (byBanka[k.banka]||0) + (k.finansmanTutari||0); });
+  const bankaEntries = Object.entries(byBanka).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  mkChart('c-kredi-banka', { type: 'bar',
+    data: { labels: bankaEntries.map(e=>e[0]), datasets: [{ data: bankaEntries.map(e=>e[1]), backgroundColor: pal.accent, borderRadius: 4, maxBarThickness: 28 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{...tt, callbacks:{label:c=>fmtTL(c.parsed.y)}}}, scales:{ y:{ticks:{callback:v=>fmtK(v)}}, x:{ticks:{maxRotation:35,minRotation:35,font:{size:9}}} } } });
+  const byTur = {}; list.forEach(k => { byTur[k.tur] = (byTur[k.tur]||0) + (k.finansmanTutari||0); });
+  const turEntries = Object.entries(byTur).sort((a,b)=>b[1]-a[1]);
+  mkChart('c-kredi-tur', { type: 'doughnut',
+    data: { labels: turEntries.map(e=>e[0]), datasets: [{ data: turEntries.map(e=>e[1]), backgroundColor: [pal.accent, pal.positive, pal.negative, pal.ink, pal.muted, "#8a97a8"] }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right', labels:{boxWidth:10,font:{size:10}}}, tooltip:{...tt, callbacks:{label:c=>c.label+': '+fmtTL(c.parsed)}}} } });
+}
+
+function renderKrediList(list) {
+  const container = $("kredi-list");
+  if (!list.length) { container.innerHTML = '<div class="empty-state">Filtreye uyan kredi yok</div>'; return; }
+  const sorted = [...list].sort((a,b)=>(b.finansmanTutari||0)-(a.finansmanTutari||0));
+  container.innerHTML = sorted.map(k => {
+    const open = krediExpanded[k.sheet] ? ' open' : '';
+    const pctPaid = k.vadeAy ? Math.round(k.odenenSayisi / k.vadeAy * 100) : 0;
+    const kullandirim = krediGetEfektifKullandirim(k);
+    const kullandirimHtml = kullandirim ? `<span class="txt">${kullandirim}</span>` : `<span class="txt empty">kullandırım girilmemiş</span>`;
+    const taksitRows = k.taksitler.map(t => `<tr class="${t.durum==='ÖDENDİ'?'paid':''}"><td class="mono">${t.tarih||'—'}</td><td class="num mono">${fmtTL(t.taksitTutari,2)}</td><td><span class="status-badge ${t.durum==='ÖDENDİ'?'ok':'wait'}">${t.durum||'—'}</span></td></tr>`).join("");
+    return `<div class="bank-item kredi-item${open}" data-sheet="${k.sheet.replace(/"/g,'&quot;')}">
+      <div class="bank-row" data-role="toggle">
+        <div class="name">
+          <span class="chev">&#9656;</span>
+          <div class="mark">${(k.banka[0]||'?').toUpperCase()}</div>
+          <div><div class="nm">${k.banka} <span class="badge">${k.tur}</span> ${k.krediKodu?`<span class="badge">#${k.krediKodu}</span>`:''}</div>
+          <div class="sub">${k.odenenSayisi}/${k.vadeAy} taksit ödendi</div></div>
+        </div>
+        <div class="bar-wrap"><div class="progress"><div class="fill positive" style="width:${pctPaid}%"></div></div><div class="bar-legend">${pctPaid}% ödendi</div></div>
+        <div class="amount"><div class="big">${fmtTL(k.bekleyenTutar)}</div><div class="small">kalan taksit &middot; ${fmtK(k.finansmanTutari||0)} toplam</div></div>
+      </div>
+      <div class="kredi-detail">
+        <div class="kredi-meta">
+          ${k.krediHesapNo?`<div>Hesap No <b>${k.krediHesapNo}</b></div>`:''}
+          <div>Vade <b>${k.vadeAy} ay</b></div>
+          ${k.kullandirimTarihi?`<div>Kullandırım Tarihi <b>${k.kullandirimTarihi}</b></div>`:''}
+        </div>
+        <div class="kredi-not" data-role="not-wrap">
+          <span class="muted" style="font-size:11px">Kullandırım:</span> ${kullandirimHtml}
+          <span class="edit-ic" data-role="not-edit" title="Düzenle">&#9998;</span>
+        </div>
+        <table class="tx kredi-taksit"><thead><tr><th>Tarih</th><th class="num">Tutar</th><th>Durum</th></tr></thead><tbody>${taksitRows}</tbody></table>
+      </div>
+    </div>`;
+  }).join("");
+
+  container.querySelectorAll('.kredi-item').forEach(item => {
+    const sheet = item.dataset.sheet;
+    item.querySelector('[data-role="toggle"]').addEventListener('click', () => { krediExpanded[sheet] = !krediExpanded[sheet]; item.classList.toggle('open', krediExpanded[sheet]); });
+    const editIc = item.querySelector('[data-role="not-edit"]');
+    if (editIc) editIc.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const wrap = item.querySelector('[data-role="not-wrap"]');
+      const current = krediGetEfektifKullandirim(KREDI_DATA.find(k=>k.sheet===sheet)) || '';
+      const input = document.createElement('input');
+      input.type = 'text'; input.value = current; input.placeholder = 'Kullandırım açıklaması…';
+      wrap.querySelector('.txt').replaceWith(input); input.focus();
+      const save = () => saveKrediNot(sheet, input.value.trim());
+      input.addEventListener('blur', save);
+      input.addEventListener('keydown', ev2 => { if (ev2.key==='Enter') input.blur(); if (ev2.key==='Escape') renderKrediPanel(); });
+    });
+  });
+}
+
+function renderKrediYaklasan(list) {
+  const horizon = new Date(); horizon.setDate(horizon.getDate()+30);
+  const todayIso = krediFormatDateLocal(new Date()), horizonIso = krediFormatDateLocal(horizon);
+  const rows = [];
+  list.forEach(k => { k.taksitler.forEach(t => { if (t.tarih && t.tarih >= todayIso && t.tarih <= horizonIso) rows.push({ tarih: t.tarih, banka: k.banka, kod: k.krediKodu, tur: k.tur, tutar: t.taksitTutari, durum: t.durum }); }); });
+  rows.sort((a,b)=>a.tarih.localeCompare(b.tarih));
+  $("kredi-yaklasan-sub").textContent = `Önümüzdeki 30 gün · ${rows.length} taksit`;
+  $("kredi-yaklasan-body").innerHTML = rows.length === 0 ? '<tr><td colspan="6" class="empty-state">Yaklaşan taksit yok</td></tr>'
+    : rows.map(r => `<tr><td class="mono">${new Date(r.tarih).toLocaleDateString('tr-TR')}</td><td>${r.banka}</td><td class="mono">${r.kod||'—'}</td><td>${r.tur}</td><td class="num mono">${fmtTL(r.tutar,2)}</td><td><span class="status-badge ${r.durum==='ÖDENDİ'?'ok':'wait'}">${r.durum||'—'}</span></td></tr>`).join("");
+}
+
+/* ---------- yukle + canli baglanti (kredi_mtime degisimini WS uzerinden dinler) ---------- */
+setLive("warn", "yükleniyor…");
+fetchAndRenderKredi().then(() => setLive("", "canlı"));
+
+setTimeout(() => {
+  try {
+    const ws = new WebSocket(`ws://${location.host}/ws`);
+    ws.onopen = () => setLive("", "canlı");
+    ws.onmessage = e => {
+      try {
+        const d = JSON.parse(e.data);
+        if (d.kredi_mtime !== undefined && d.kredi_mtime !== lastKrediMtime) {
+          lastKrediMtime = d.kredi_mtime;
+          fetchAndRenderKredi();
+        }
+      } catch(err) { console.error(err); }
+    };
+    ws.onclose = () => setLive("warn", "bağlantı koptu");
+    ws.onerror = () => setLive("warn", "bağlantı hatası");
+  } catch(e) { setLive("warn", "polling"); }
+}, 800);
+</script>
+</body>
+</html>

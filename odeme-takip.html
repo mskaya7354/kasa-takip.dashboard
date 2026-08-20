@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kasa Takip &mdash; &Ouml;deme Takip Panosu</title>
+<meta name="theme-color" content="#14130f" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preload" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+<noscript><link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" /></noscript>
+<script src="/chart.min.js" defer></script>
+<style>
+  :root {
+    --paper:#faf9f6; --paper-2:#f3f1ea; --card:#ffffff;
+    --ink:#14130f; --ink-2:#3a3832; --muted:#7a7770; --muted-2:#a8a49a;
+    --rule:#e8e4d8; --rule-strong:#d6d1c0;
+    --accent:oklch(0.62 0.12 75); --accent-soft:oklch(0.94 0.04 75); --accent-ink:oklch(0.38 0.09 75);
+    --positive:oklch(0.58 0.1 155); --positive-soft:oklch(0.95 0.04 155);
+    --negative:oklch(0.55 0.14 25); --negative-soft:oklch(0.95 0.04 25);
+    --serif:"Instrument Serif","Times New Roman",serif;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,monospace;
+    --r-sm:6px; --r-md:10px; --r-lg:14px;
+    --shadow-sm:0 1px 0 rgba(20,19,15,.04),0 1px 2px rgba(20,19,15,.03);
+    --p-pad:22px 24px; --p-head-mb:18px;
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  table{border-collapse:collapse;width:100%}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .muted{color:var(--muted)}
+
+  .app{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+  .sidebar{background:var(--paper);border-right:1px solid var(--rule);padding:22px 18px;display:flex;flex-direction:column;gap:28px;position:sticky;top:0;height:100vh}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand-mark{width:28px;height:28px;border-radius:7px;background:var(--ink);color:var(--paper);display:grid;place-items:center;font-family:var(--serif);font-size:17px;font-style:italic}
+  .brand-meta h1{font-size:14px;font-weight:600;letter-spacing:-.01em}
+  .brand-meta .sub{font-size:11px;color:var(--muted);font-family:var(--mono)}
+  .back-link{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;color:var(--ink-2);text-decoration:none;font-size:13px;font-weight:500;border:1px solid var(--rule)}
+  .back-link:hover{border-color:var(--rule-strong);background:var(--paper-2)}
+  .side-foot{margin-top:auto;font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:4px;padding:0 10px}
+  .live{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono)}
+  .live .led{width:6px;height:6px;border-radius:50%;background:var(--positive);box-shadow:0 0 0 3px oklch(.58 .1 155 / .15);animation:pulse 2.4s infinite}
+  .live.warn .led{background:var(--accent);box-shadow:0 0 0 3px oklch(.62 .12 75 / .15)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  main{padding:28px 36px 80px;max-width:1440px}
+  .topbar{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid var(--rule);padding-bottom:20px;margin-bottom:28px;gap:16px;flex-wrap:wrap}
+  .topbar .kicker{font-family:var(--mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.14em}
+  .topbar h2{font-family:var(--serif);font-size:38px;line-height:1;margin-top:6px;letter-spacing:-.02em}
+  .topbar h2 em{font-style:italic;color:var(--accent-ink)}
+  .ddl{padding:6px 10px;border-radius:8px;border:1px solid var(--rule);background:var(--card);font-size:12.5px;font-weight:500;color:var(--ink-2);font-family:var(--sans);cursor:pointer;outline:none}
+  .ddl:hover{border-color:var(--rule-strong)}
+
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin-bottom:var(--sp-8);border:1px solid var(--rule);border-radius:var(--r-lg);background:var(--card);overflow:hidden;box-shadow:var(--shadow-sm)}
+  .kpi{padding:var(--sp-4) var(--sp-4);border-right:1px solid var(--rule);display:flex;flex-direction:column;gap:6px;min-width:0}
+  .kpi:last-child{border-right:0}
+  .kpi .label{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .kpi .value{font-family:var(--serif);font-size:24px;line-height:1.1;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kpi .sub{font-size:11px;color:var(--muted)}
+  .kpi.purple .value{color:var(--ink)} .kpi.green .value{color:var(--positive)} .kpi.amber .value{color:var(--accent-ink)}
+
+  .grid-2{display:grid;grid-template-columns:1.4fr 1fr;gap:var(--sp-5);margin-bottom:var(--sp-6)}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-5);margin-bottom:var(--sp-6)}
+  .panel{background:var(--card);border:1px solid var(--rule);border-radius:var(--r-lg);padding:var(--p-pad);box-shadow:var(--shadow-sm)}
+  .panel + .panel{margin-top:var(--sp-5)}
+  .panel-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:var(--p-head-mb);gap:var(--sp-3);flex-wrap:wrap}
+  .panel-head > div:first-child{min-width:0;flex:1}
+  .panel-head .ttl{font-family:var(--serif);font-size:22px;letter-spacing:-.01em;line-height:1.15}
+  .panel-head .ttl em{font-style:italic;color:var(--accent-ink)}
+  .panel-head .sub{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.4}
+  .chart-wrap{position:relative;height:260px}
+  .chart-wrap.short{height:200px}
+
+  /* Takvim */
+  .cal-nav{display:flex;align-items:center;gap:8px}
+  .cal-nav .month{font-family:var(--serif);font-size:17px;min-width:150px;text-align:center}
+  .cal-nav button{width:30px;height:30px;border-radius:8px;border:1px solid var(--rule);background:var(--card)}
+  .cal-nav button:hover{border-color:var(--rule-strong);background:var(--paper-2)}
+  .cal-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-2);margin-bottom:var(--sp-4)}
+  .cal-stat{background:var(--paper-2);border-radius:var(--r-md);padding:var(--sp-2) var(--sp-3)}
+  .cal-stat .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+  .cal-stat .val{font-family:var(--mono);font-size:15px;font-weight:600;color:var(--ink)}
+  .cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+  .cal .dow{font-size:10px;font-weight:600;color:var(--muted-2);text-transform:uppercase;letter-spacing:.08em;padding:var(--sp-2) var(--sp-1);text-align:left}
+  .cal .day{border:1px solid var(--rule);border-radius:var(--r-sm);padding:var(--sp-2);min-height:64px;min-width:0;background:var(--card);display:flex;flex-direction:column;gap:3px;position:relative;font-size:11px;cursor:default}
+  .cal .day.off{background:var(--paper-2);color:var(--muted-2);border-color:transparent;min-height:36px}
+  .cal .day.today{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink) inset}
+  .cal .day.has{cursor:pointer}
+  .cal .day.has:hover{border-color:var(--rule-strong);background:var(--paper)}
+  .cal .day.sel{border-color:var(--ink);background:var(--paper-2)}
+  .cal .day .num{font-family:var(--mono);font-weight:500;font-size:11px;color:var(--ink-2)}
+  .cal .day .amt{font-family:var(--mono);font-size:10px;padding:2px 4px;border-radius:3px;background:var(--accent-soft);color:var(--accent-ink);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cal .day .amt.paid{background:var(--positive-soft);color:var(--positive)}
+  .cal-day-detail{margin-top:var(--sp-4);border-top:1px solid var(--rule);padding-top:var(--sp-3);display:none}
+  .cal-day-detail.show{display:block}
+  .cal-day-detail .ttl{font-weight:600;font-size:13px;margin-bottom:var(--sp-2)}
+  .cal-day-row{display:flex;justify-content:space-between;gap:var(--sp-2);padding:5px 0;border-bottom:1px dashed var(--rule);font-size:12px}
+  .cal-day-row:last-child{border-bottom:0}
+  .cal-day-row .l{color:var(--ink-2)} .cal-day-row .l .sub{color:var(--muted);font-size:10.5px;display:block}
+  .cal-day-row .r{font-family:var(--mono);text-align:right;white-space:nowrap}
+  .cal-day-row .r.wait{color:var(--accent-ink)} .cal-day-row .r.paid{color:var(--positive)}
+
+  .tur-controls{display:flex;gap:var(--sp-3);flex-wrap:wrap;margin-bottom:var(--sp-4)}
+  .tur-summary{width:100%;font-size:12.5px}
+  .tur-summary th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--rule);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .tur-summary th.num{text-align:right}
+  .tur-summary td{padding:6px 8px;border-bottom:1px solid var(--rule)}
+  .tur-summary td.num{text-align:right;font-family:var(--mono)}
+  .tur-summary tr:last-child td{border-bottom:0}
+  .tur-foot{display:flex;gap:var(--sp-5);margin-top:var(--sp-3);padding-top:var(--sp-3);border-top:1px solid var(--rule);font-size:12px;flex-wrap:wrap}
+  .tur-foot .l{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:2px}
+  .tur-foot .v{font-family:var(--mono);font-weight:600;font-size:15px}
+  .tur-foot .v.wait{color:var(--accent-ink)} .tur-foot .v.paid{color:var(--positive)}
+
+  .empty-state{text-align:center;padding:var(--sp-6) var(--sp-3);color:var(--muted);font-size:12px}
+  .err-box{background:var(--negative-soft);border:1px solid var(--negative);border-radius:var(--r-md);padding:var(--sp-4) var(--sp-5);margin-bottom:var(--sp-5);color:var(--negative);font-family:var(--mono);font-size:12px;white-space:pre-wrap;display:none}
+  .loading{text-align:center;padding:60px 0;color:var(--muted)}
+  .loading .spin{width:24px;height:24px;border:2px solid var(--rule);border-top-color:var(--ink);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto var(--sp-3)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  @media(max-width:1100px){ .kpis{grid-template-columns:repeat(2,1fr)} .kpi:nth-child(2n){border-right:0} .grid-2{grid-template-columns:1fr} .grid-3{grid-template-columns:1fr} .cal-stats{grid-template-columns:repeat(2,1fr)} }
+  @media(min-width:768px) and (max-width:1024px) and (orientation:portrait), (max-width:820px){
+    .app{grid-template-columns:1fr}
+    .sidebar{position:sticky;top:0;z-index:50;height:auto;flex-direction:row;align-items:center;padding:var(--sp-2) var(--sp-4);gap:var(--sp-4);overflow-x:auto;border-right:0;border-bottom:1px solid var(--rule)}
+    .side-foot{display:none}
+    main{padding:var(--sp-4)}
+    .topbar h2{font-size:26px}
+    .cal .day{min-height:48px;padding:4px;font-size:10px}
+  }
+  @media(max-width:480px){ main{padding:var(--sp-2)} .panel{padding:var(--sp-3)} .kpis{grid-template-columns:1fr} .kpi{border-right:0!important;border-bottom:1px solid var(--rule)} }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">K</div>
+      <div class="brand-meta"><h1>Kasa Takip</h1><div class="sub">Ödeme Takip Panosu</div></div>
+    </div>
+    <a class="back-link" href="/">&larr; Kasa'ya D&ouml;n</a>
+    <div class="side-foot">
+      <span class="live" id="live-ind"><span class="led"></span><span id="live-lbl">ba&#287;lan&#305;yor&hellip;</span></span>
+    </div>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <div><div class="kicker">EDUCA DESIGN</div><h2>&Ouml;deme Takip <em>Panosu</em></h2></div>
+    </div>
+
+    <div class="err-box" id="err-box"></div>
+    <div class="loading" id="loading"><div class="spin"></div>Veri y&uuml;kleniyor&hellip;</div>
+
+    <div id="content" style="display:none">
+      <div class="kpis" id="kpi-row"></div>
+
+      <div class="grid-2">
+        <div class="chart-wrap tall panel" style="height:auto"><div class="panel-head"><div><div class="ttl">Ayl&#305;k <em>&Ouml;denen / Bekleyen</em></div></div></div><div class="chart-wrap"><canvas id="c-aylik"></canvas></div></div>
+        <div class="panel"><div class="panel-head"><div><div class="ttl">&Ouml;deme <em>T&uuml;r&uuml; Da&#287;&#305;l&#305;m&#305;</em></div></div></div><div class="chart-wrap"><canvas id="c-tur"></canvas></div></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div><div class="ttl">Ödeme <em>Takvimi</em></div><div class="sub" id="cal-sub">&mdash;</div></div>
+          <div class="cal-nav">
+            <button onclick="calNav(-1)">&larr;</button>
+            <div class="month" id="cal-month">&mdash;</div>
+            <button onclick="calNav(1)">&rarr;</button>
+          </div>
+        </div>
+        <div class="cal-stats" id="cal-stats"></div>
+        <div class="cal" id="cal-grid">
+          <div class="dow">Pzt</div><div class="dow">Sal</div><div class="dow">&Ccedil;ar</div><div class="dow">Per</div><div class="dow">Cum</div><div class="dow">Cmt</div><div class="dow">Paz</div>
+        </div>
+        <div class="cal-day-detail" id="cal-day-detail"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div><div class="ttl">&Ouml;deme T&uuml;r&uuml; <em>Bazında Toplamlar</em></div><div class="sub" id="tur-sub">&mdash;</div></div>
+        </div>
+        <div class="tur-controls">
+          <select id="tur-month" class="ddl" onchange="renderTurSummary()"></select>
+          <select id="tur-status" class="ddl" onchange="renderTurSummary()">
+            <option value="all">T&uuml;m durumlar</option>
+            <option value="ÖDENDİ">Ödenen</option>
+            <option value="BEKLİYOR">Bekleyen</option>
+          </select>
+        </div>
+        <table class="tur-summary" id="tur-table"><thead><tr><th>&Ouml;deme T&uuml;r&uuml;</th><th class="num">Toplam</th><th class="num" id="tur-col2-lbl">Bekleyen</th></tr></thead><tbody id="tur-body"></tbody></table>
+        <div class="tur-foot">
+          <div><span class="l">Toplam</span><span class="v" id="tur-total">&mdash;</span></div>
+          <div><span class="l">&Ouml;denen</span><span class="v paid" id="tur-odenen">&mdash;</span></div>
+          <div><span class="l">Bekleyen</span><span class="v wait" id="tur-bekleyen">&mdash;</span></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmtTL = (v,d=0) => new Intl.NumberFormat("tr-TR",{minimumFractionDigits:d,maximumFractionDigits:d}).format(v||0)+" ₺";
+const fmtK = v => { const a=Math.abs(v||0); if(a>=1e9)return(v/1e9).toFixed(1)+"Mr"; if(a>=1e6)return(v/1e6).toFixed(1)+"M"; if(a>=1e3)return(v/1e3).toFixed(0)+"K"; return String(Math.round(v||0)); };
+const hasChart = () => typeof window.Chart !== "undefined";
+const pal = { ink:"#14130f", accent:"#9c7a3b", positive:"#4d8d65", negative:"#b0563a", muted:"#a8a49a", rule:"#e8e4d8" };
+const tt = { backgroundColor:"#14130f",titleColor:"#faf9f6",bodyColor:"#faf9f6",padding:10,cornerRadius:8,displayColors:false,
+  titleFont:{family:"Inter",weight:"600",size:11}, bodyFont:{family:"IBM Plex Mono",size:11} };
+function _initChartDefaults() {
+  if (hasChart() && !_initChartDefaults._done) {
+    Chart.defaults.font.family="Inter,sans-serif"; Chart.defaults.font.size=11; Chart.defaults.color="#7a7770"; Chart.defaults.borderColor=pal.rule;
+    _initChartDefaults._done = true;
+  }
+}
+const charts = {};
+function mkChart(id, cfg) {
+  _initChartDefaults();
+  if (!hasChart()) return;
+  if (charts[id]) { try { charts[id].destroy(); } catch(e){} delete charts[id]; }
+  const el = $(id); if (!el) return;
+  try { charts[id] = new Chart(el, cfg); } catch(e) { console.error(id, e); }
+}
+function setLive(state, lbl) { const el = $("live-ind"); el.className = "live " + state; $("live-lbl").textContent = lbl; }
+const MONTHS = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
+function trDateToIso(s) { // "dd.mm.yyyy" -> "yyyy-mm-dd"
+  if (!s) return null;
+  const m = String(s).match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+  if (!m) return null;
+  return m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0');
+}
+function normDurum(raw) { return /BEKL/i.test(String(raw||'')) ? 'BEKLİYOR' : 'ÖDENDİ'; }
+
+/* ---------- Sunucudan zaten hesaplanmış veriyi bu sayfanın ihtiyacına uyarlar ---------- */
+let ISLEMLER = [];   // {t, tutar, tur, arac, durum, ack} -- islemler[]'den uyarlanmis (tarih=islem tarihi)
+let BEKLEYEN = [];   // {t, tutar, tur, arac, durum:'BEKLİYOR', ack} -- bekleyen[]'den uyarlanmis (t=vade)
+let calMonth = new Date();
+let selectedDayKey = null;
+
+function adaptData(d) {
+  ISLEMLER = (d.islemler || []).map(r => ({
+    t: trDateToIso(r.tarih_tam), tutar: r.tutar_tl || 0, tur: r.odeme_turu || '(belirsiz)',
+    arac: r.odeme_araci || r.banka || '(belirsiz)', durum: normDurum(r.durum), ack: r.aciklama || '', cari: r.cari || ''
+  })).filter(r => r.t);
+  BEKLEYEN = (d.bekleyen || []).map(r => ({
+    t: r.vade ? trDateToIso(r.vade) : null, tutar: r.tutar_tl || 0, tur: r.odeme_turu || '(belirsiz)',
+    arac: r.banka || '(belirsiz)', durum: 'BEKLİYOR', ack: r.aciklama || '', cari: r.cari || ''
+  })).filter(r => r.t);
+}
+
+function render(d) {
+  if (!d || d.hata) { $("err-box").textContent = "Sunucu hatası: " + (d?.hata||"bilinmiyor"); $("err-box").style.display="block"; $("loading").style.display="none"; return; }
+  adaptData(d);
+  $("loading").style.display = "none"; $("content").style.display = "block"; $("err-box").style.display = "none";
+  renderKPI(d.kpi || {});
+  renderCharts();
+  renderCalendar();
+  populateMonthSelector();
+  renderTurSummary();
+}
+
+function renderKPI(k) {
+  const cards = [
+    { label:'Toplam Tutar', value: fmtTL(k.toplam_tutar||0), sub: (k.islem_sayisi||0)+' kayıt', cls:'purple' },
+    { label:'Tahsil Edilen', value: fmtTL(k.toplam_tahsilat||0), sub:'ödeme dışı', cls:'green' },
+    { label:'Ödeme Yapılan', value: fmtTL(k.toplam_odeme||0), sub:'toplam çıkış', cls:'purple' },
+    { label:'Bekleyen', value: fmtTL((k.bekleyen_tutar||0)+(k.bekleyen_odeme_tutar||0)), sub:(k.bekleyen_adet||0)+(k.bekleyen_odeme_adet||0)+' kayıt', cls:'amber' },
+    { label:'Ortalama İşlem', value: fmtTL(k.ortalama_tutar||0), sub:'kayıt başına', cls:'purple' },
+  ];
+  $("kpi-row").innerHTML = cards.map(c => `<div class="kpi ${c.cls}"><div class="label">${c.label}</div><div class="value">${c.value}</div><div class="sub">${c.sub}</div></div>`).join("");
+}
+
+function renderCharts() {
+  const monthly = {};
+  ISLEMLER.forEach(r => { const key = r.t.slice(0,7); if (!monthly[key]) monthly[key] = {paid:0,pending:0};
+    if (r.durum==='ÖDENDİ') monthly[key].paid += r.tutar; else monthly[key].pending += r.tutar; });
+  const mKeys = Object.keys(monthly).sort().slice(-12);
+  mkChart('c-aylik', { type:'bar',
+    data: { labels: mKeys.map(k=>{const p=k.split('-');return MONTHS[+p[1]-1].slice(0,3)+" '"+p[0].slice(2);}),
+      datasets:[{label:'Ödenen',data:mKeys.map(k=>monthly[k].paid),backgroundColor:pal.positive,borderRadius:4},
+                {label:'Bekleyen',data:mKeys.map(k=>monthly[k].pending),backgroundColor:pal.accent,borderRadius:4}] },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{boxWidth:10,font:{size:10}}},tooltip:{...tt,callbacks:{label:c=>c.dataset.label+': '+fmtTL(c.raw)}}},scales:{y:{ticks:{callback:v=>fmtK(v)}}}} });
+
+  const turMap = {};
+  ISLEMLER.forEach(r => { turMap[r.tur] = (turMap[r.tur]||0) + r.tutar; });
+  const turEntries = Object.entries(turMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  mkChart('c-tur', { type:'doughnut',
+    data:{ labels:turEntries.map(e=>e[0].length>20?e[0].slice(0,17)+'…':e[0]), datasets:[{data:turEntries.map(e=>e[1]),backgroundColor:[pal.accent,pal.positive,pal.negative,pal.ink,pal.muted,"#8a97a8","#c9a876","#7d9d8f"]}] },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{boxWidth:9,font:{size:9}}},tooltip:{...tt,callbacks:{label:c=>c.label+': '+fmtTL(c.parsed)}}}} });
+}
+
+/* ---------- Takvim ---------- */
+function calNav(delta) { calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth()+delta, 1); selectedDayKey=null; $("cal-day-detail").classList.remove('show'); renderCalendar(); }
+
+function renderCalendar() {
+  const y = calMonth.getFullYear(), m = calMonth.getMonth();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayKey = today.toISOString().slice(0,10);
+  $("cal-month").textContent = MONTHS[m] + ' ' + y;
+
+  const monthKey = y + '-' + String(m+1).padStart(2,'0');
+  const monthPaid = ISLEMLER.filter(r => r.durum==='ÖDENDİ' && r.t.slice(0,7)===monthKey);
+  const monthPending = BEKLEYEN.filter(r => r.t.slice(0,7)===monthKey);
+  const monthPaidTotal = monthPaid.reduce((s,r)=>s+r.tutar,0);
+  const monthPendingTotal = monthPending.reduce((s,r)=>s+r.tutar,0);
+  const todayPending = BEKLEYEN.filter(r => r.t === todayKey);
+
+  $("cal-stats").innerHTML = `
+    <div class="cal-stat"><div class="lbl">Bugün Bekleyen</div><div class="val">${fmtTL(todayPending.reduce((s,r)=>s+r.tutar,0))}</div></div>
+    <div class="cal-stat"><div class="lbl">Bu Ay Bekleyen</div><div class="val">${fmtTL(monthPendingTotal)}</div></div>
+    <div class="cal-stat"><div class="lbl">Bu Ay Ödenen</div><div class="val">${fmtTL(monthPaidTotal)}</div></div>
+    <div class="cal-stat"><div class="lbl">Bu Ay Toplam</div><div class="val">${fmtTL(monthPaidTotal+monthPendingTotal)}</div></div>`;
+  $("cal-sub").textContent = `${monthPaid.length + monthPending.length} kayıt bu ay`;
+
+  const byDay = {};
+  monthPaid.concat(monthPending).forEach(r => { (byDay[r.t] = byDay[r.t]||[]).push(r); });
+
+  const firstDay = new Date(y,m,1);
+  const startOffset = (firstDay.getDay()+6)%7;
+  const daysInMonth = new Date(y,m+1,0).getDate();
+
+  const grid = $("cal-grid");
+  grid.querySelectorAll('.day').forEach(e=>e.remove());
+  for (let i=0;i<startOffset;i++) { const e=document.createElement('div'); e.className='day off'; grid.appendChild(e); }
+  for (let day=1; day<=daysInMonth; day++) {
+    const key = monthKey + '-' + String(day).padStart(2,'0');
+    const items = byDay[key] || [];
+    const cell = document.createElement('div');
+    cell.className = 'day' + (items.length?' has':'') + (key===todayKey?' today':'') + (key===selectedDayKey?' sel':'');
+    let inner = `<div class="num">${day}</div>`;
+    if (items.length) {
+      const total = items.reduce((s,r)=>s+r.tutar,0);
+      const paidPart = items.filter(r=>r.durum==='ÖDENDİ').reduce((s,r)=>s+r.tutar,0);
+      const cls = paidPart===total ? 'amt paid' : 'amt';
+      inner += `<div class="${cls}">${fmtK(total)}</div>`;
+    }
+    cell.innerHTML = inner;
+    if (items.length) cell.addEventListener('click', () => { selectedDayKey = (selectedDayKey===key)?null:key; renderCalendar(); if(selectedDayKey) showDayDetail(key, items); else $("cal-day-detail").classList.remove('show'); });
+    grid.appendChild(cell);
+  }
+}
+
+function showDayDetail(key, items) {
+  const box = $("cal-day-detail");
+  const dt = new Date(key+'T00:00:00');
+  const total = items.reduce((s,r)=>s+r.tutar,0);
+  box.innerHTML = `<div class="ttl">${dt.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'})} &middot; ${fmtTL(total)} &middot; ${items.length} kayıt</div>` +
+    items.map(r => `<div class="cal-day-row"><div class="l">${r.tur}<span class="sub">${r.arac}${r.ack?' · '+r.ack.slice(0,40):''}</span></div><div class="r ${r.durum==='ÖDENDİ'?'paid':'wait'}">${fmtTL(r.tutar)}</div></div>`).join("");
+  box.classList.add('show');
+}
+
+/* ---------- Ödeme Türü Bazında Toplamlar ---------- */
+function populateMonthSelector() {
+  const sel = $("tur-month");
+  const now = new Date();
+  const currentMonth = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const monthSet = new Set(ISLEMLER.map(r=>r.t.slice(0,7)));
+  const months = monthSet.size ? [...monthSet].sort() : [currentMonth];
+  sel.innerHTML = months.map(mk => { const p=mk.split('-'); return `<option value="${mk}"${mk===currentMonth?' selected':''}>${MONTHS[+p[1]-1]} ${p[0]}</option>`; }).join("");
+  if (!monthSet.has(currentMonth) && months.length) sel.value = months[months.length-1];
+}
+
+function renderTurSummary() {
+  const selectedMonth = $("tur-month").value;
+  const filterVal = $("tur-status").value;
+  const baseData = ISLEMLER.filter(r => r.t.slice(0,7) === selectedMonth);
+
+  const totalMap = {}, odenenMap = {}, bekleyenMap = {};
+  baseData.forEach(r => {
+    totalMap[r.tur] = (totalMap[r.tur]||0) + r.tutar;
+    if (r.durum==='ÖDENDİ') odenenMap[r.tur] = (odenenMap[r.tur]||0) + r.tutar;
+    else bekleyenMap[r.tur] = (bekleyenMap[r.tur]||0) + r.tutar;
+  });
+  const secondMap = filterVal==='ÖDENDİ' ? odenenMap : bekleyenMap;
+  $("tur-col2-lbl").textContent = filterVal==='ÖDENDİ' ? 'Ödenen' : 'Bekleyen';
+
+  const turler = Object.keys(totalMap).sort((a,b)=>(totalMap[b]||0)-(totalMap[a]||0));
+  $("tur-body").innerHTML = turler.length===0 ? '<tr><td colspan="3" class="empty-state">Bu ayda kayıt yok</td></tr>'
+    : turler.map(t => `<tr><td>${t}</td><td class="num">${fmtTL(totalMap[t])}</td><td class="num">${fmtTL(secondMap[t]||0)}</td></tr>`).join("");
+
+  const totalAll = baseData.reduce((s,r)=>s+r.tutar,0);
+  const odenenAll = baseData.filter(r=>r.durum==='ÖDENDİ').reduce((s,r)=>s+r.tutar,0);
+  const bekleyenAll = baseData.filter(r=>r.durum!=='ÖDENDİ').reduce((s,r)=>s+r.tutar,0);
+  $("tur-total").textContent = fmtTL(totalAll);
+  $("tur-odenen").textContent = fmtTL(odenenAll);
+  $("tur-bekleyen").textContent = fmtTL(bekleyenAll);
+  const p = selectedMonth.split('-');
+  $("tur-sub").textContent = (p.length===2 ? MONTHS[+p[1]-1]+' '+p[0] : selectedMonth) + ' · ' + baseData.length + ' kayıt';
+}
+
+/* ---------- Yükle + canlı bağlantı ---------- */
+function loadData() {
+  fetch("/api/data", {credentials:'include'}).then(r=>r.json()).then(d => { render(d); }).catch(err => {
+    $("err-box").textContent = "Veri alınamadı: " + err.message; $("err-box").style.display = "block"; $("loading").style.display = "none";
+  });
+}
+setLive("warn","bağlanıyor…");
+loadData();
+setTimeout(() => {
+  try {
+    const ws = new WebSocket(`ws://${location.host}/ws`);
+    ws.onopen = () => setLive("","canlı");
+    ws.onmessage = e => { try { render(JSON.parse(e.data)); } catch(err) { console.error(err); } };
+    ws.onclose = () => setLive("warn","bağlantı koptu");
+    ws.onerror = () => setLive("warn","bağlantı hatası");
+  } catch(e) { setLive("warn","polling"); }
+}, 800);
+setInterval(() => { if ($("live-ind").classList.contains("warn")) loadData(); }, 30000);
+</script>
+</body>
+</html>
