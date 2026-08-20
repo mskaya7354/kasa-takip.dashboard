@@ -4,7 +4,7 @@ Kasa Takip — Dashboard Sunucusu (v4)
 - /ws        ... Excel değişince gerçek zamanlı push
 Excel şeması değişmiş olursa, kolon map'leri aşağıdan ayarlanabilir.
 """
-import asyncio, argparse, json, logging, math, os, sys, time, traceback, threading, secrets
+import asyncio, argparse, json, logging, math, os, sys, time, traceback, threading, secrets, io
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import datetime, date, timedelta
@@ -69,7 +69,10 @@ def find_col(cols, keys):
 def parse_excel(path):
     log.info(f"Excel okunuyor: {path}")
     t0 = time.time()
-    xl = pd.ExcelFile(path, engine="openpyxl", engine_kwargs={"read_only": True, "data_only": True})
+    with open(path, "rb") as f:
+        _file_bytes = f.read()
+    log.info(f"  Dosya bellege okundu ({time.time()-t0:.2f}s) -- ag baglantisi serbest birakildi")
+    xl = pd.ExcelFile(io.BytesIO(_file_bytes), engine="openpyxl", engine_kwargs={"read_only": True, "data_only": True})
     today = date.today()
     data = {
         "guncelleme": datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
@@ -84,6 +87,8 @@ def parse_excel(path):
         "bekleyen": [],
         "takvim": [],
         "nakit_akisi": [],
+        "aylik_odemeler": [],
+        "aylik_odeme_detay": [],
         "karsilastirma": {"bu_ay": [], "gecen_ay": []},
         "kredi_kartlari": [],
         "hakedisler": [],
@@ -156,8 +161,16 @@ def parse_excel(path):
                 elif "tutar_tl" in df.columns:
                     df["_is_in"] = df["tutar_tl"] > 0
 
-                tahsilat_sum = float(df.loc[df["_is_in"], "tutar_tl"].abs().sum()) if "_is_in" in df.columns else 0
-                odeme_sum = float(df.loc[~df["_is_in"], "tutar_tl"].abs().sum()) if "_is_in" in df.columns else 0
+                # Ic hareketler (virman, doviz al/sat, nakit cekilen) tahsilat/odeme degildir
+                # Bunlar kendi hesaplar/para birimleri arasi transfer -- ucuncu tarafa odeme/tahsilat degil
+                _IC_HAREKET = "VİRMAN|VIRMAN|DÖVİZ AL|DOVIZ AL|DÖVİZ SAT|DOVIZ SAT|NAKİT ÇEK|NAKIT ÇEK|NAKİT CEK|NAKIT CEK"
+                if "odeme_turu" in df.columns:
+                    df["_is_virman"] = df["odeme_turu"].astype(str).str.upper().str.contains(_IC_HAREKET, regex=True, na=False)
+                else:
+                    df["_is_virman"] = False
+
+                tahsilat_sum = float(df.loc[df["_is_in"] & ~df["_is_virman"], "tutar_tl"].abs().sum()) if "_is_in" in df.columns else 0
+                odeme_sum = float(df.loc[~df["_is_in"] & ~df["_is_virman"], "tutar_tl"].abs().sum()) if "_is_in" in df.columns else 0
                 data["kpi"]["toplam_tahsilat"] = round(tahsilat_sum, 2)
                 data["kpi"]["toplam_odeme"] = round(odeme_sum, 2)
                 data["kpi"]["net_akis"] = round(tahsilat_sum - odeme_sum, 2)
@@ -193,9 +206,10 @@ def parse_excel(path):
 
                         past_cf = []
                         if "_is_in" in df2_chart.columns:
+                            _vir = df2_chart["_is_virman"] if "_is_virman" in df2_chart.columns else False
                             g = df2_chart.groupby("ay_key").apply(lambda x: pd.Series({
-                                "tahsilat": float(x.loc[x["_is_in"], "tutar_tl"].abs().sum()),
-                                "odeme":    float(x.loc[~x["_is_in"], "tutar_tl"].abs().sum()),
+                                "tahsilat": float(x.loc[x["_is_in"] & ~x.get("_is_virman", False), "tutar_tl"].abs().sum()),
+                                "odeme":    float(x.loc[~x["_is_in"] & ~x.get("_is_virman", False), "tutar_tl"].abs().sum()),
                             })).reset_index().sort_values("ay_key")
                             for _, r in g.iterrows():
                                 past_cf.append({
@@ -205,6 +219,34 @@ def parse_excel(path):
                                     "odeme": round(r["odeme"], 2)
                                 })
                         data["nakit_akisi"] = past_cf
+
+                        # ---------- Aylik odemeler (virman haric, sadece cikis) ----------
+                        if "_is_in" in df2.columns:
+                            odf = df2[~df2["_is_in"]].copy()
+                            if "_is_virman" in odf.columns:
+                                odf = odf[~odf["_is_virman"]]
+                            if len(odf) > 0:
+                                og = (odf.groupby("ay_key")["tutar_tl"]
+                                        .apply(lambda s: float(s.abs().sum()))
+                                        .reset_index().sort_values("ay_key"))
+                                data["aylik_odemeler"] = [{
+                                    "ay_key": r["ay_key"].strftime("%Y-%m"),
+                                    "ay": r["ay_key"].strftime("%b %y"),
+                                    "yil": int(r["ay_key"].year),
+                                    "tutar": round(float(r["tutar_tl"]), 2)
+                                } for _, r in og.iterrows()]
+
+                                # Tur bazli aylik kirilim (ay secilince detay icin)
+                                if "odeme_turu" in odf.columns:
+                                    od2 = (odf.groupby(["ay_key", "odeme_turu"])["tutar_tl"]
+                                              .apply(lambda s: float(s.abs().sum()))
+                                              .reset_index().sort_values("ay_key"))
+                                    data["aylik_odeme_detay"] = [{
+                                        "ay_key": r["ay_key"].strftime("%Y-%m"),
+                                        "yil": int(r["ay_key"].year),
+                                        "tur": str(r["odeme_turu"]).strip() or "(belirsiz)",
+                                        "tutar": round(float(r["tutar_tl"]), 2)
+                                    } for _, r in od2.iterrows()]
 
                         bu_ay_key = pd.Timestamp(today).to_period("M")
                         gecen_ay_key = (pd.Timestamp(today) - pd.DateOffset(months=1)).to_period("M")
@@ -231,7 +273,7 @@ def parse_excel(path):
                             "banka": s(r.get("banka")),
                             "odeme_araci": s(r.get("odeme_araci")),
                             "odeme_turu": s(r.get("odeme_turu")),
-                            "yon": "in" if r.get("_is_in", True) else "out",
+                            "yon": "virman" if r.get("_is_virman", False) else ("in" if r.get("_is_in", True) else "out"),
                             "tutar_tl": round(abs(float(r["tutar_tl"])), 2) if pd.notna(r["tutar_tl"]) else 0,
                             "tutar_orj": float(r["tutar_orj"]) if ("tutar_orj" in df.columns and pd.notna(r.get("tutar_orj"))) else None,
                             "doviz": s(r.get("doviz")) or "TRY",
@@ -466,10 +508,25 @@ def parse_excel(path):
                 grouped.sort(key=lambda b: b["bakiye_tl"], reverse=True)
                 data["bakiyeler"] = clean(grouped)
                 kd2_tl = kd2[kd2["hesap_turu"] == "TL"]
+                kd2_eur = kd2[kd2["hesap_turu"] == "EUR"]
+                kd2_usd = kd2[kd2["hesap_turu"] == "USD"]
+
+                bak_tl, bak_eur, bak_usd = (round(float(x["bakiye_tl"].sum()), 2) for x in (kd2_tl, kd2_eur, kd2_usd))
+                kul_tl, kul_eur, kul_usd = (round(float(x["kullanilabilir"].sum()), 2) for x in (kd2_tl, kd2_eur, kd2_usd))
+                blk_tl, blk_eur, blk_usd = (round(float(x["bloke"].sum()), 2) for x in (kd2_tl, kd2_eur, kd2_usd))
+
                 data["kpi"].update({
-                    "toplam_bakiye": round(float(kd2_tl["bakiye_tl"].sum()), 2),
-                    "toplam_kullanilabilir": round(float(kd2_tl["kullanilabilir"].sum()), 2),
-                    "toplam_bloke": round(float(kd2_tl["bloke"].sum()), 2),
+                    # Her hesap turu kendi para biriminde (TL/EUR/USD native) -- "genel" (TL karsiligi)
+                    # toplami KUR bolumu okunduktan sonra, dogru kur ile carpilarak asagida hesaplanir
+                    "toplam_bakiye": bak_tl,
+                    "toplam_bakiye_eur": bak_eur,
+                    "toplam_bakiye_usd": bak_usd,
+                    "toplam_kullanilabilir": kul_tl,
+                    "toplam_kullanilabilir_eur": kul_eur,
+                    "toplam_kullanilabilir_usd": kul_usd,
+                    "toplam_bloke": blk_tl,
+                    "toplam_bloke_eur": blk_eur,
+                    "toplam_bloke_usd": blk_usd,
                     "toplam_tahsil_cek": round(float(kd2_tl["tahsil_cek"].sum()), 2),
                     "banka_sayisi": int(len(grouped)),
                 })
@@ -775,6 +832,15 @@ def parse_excel(path):
     except Exception as e:
         log.error(f"KUR: {e}")
 
+    # ---------- Genel toplam (TL karsiligi) -- EUR/USD native tutarlari gunun kuruyla TL'ye cevirip topla ----------
+    _eur_r = data["kpi"].get("son_eur") or 0
+    _usd_r = data["kpi"].get("son_usd") or 0
+    for _pre in ("bakiye", "kullanilabilir", "bloke"):
+        _tl = data["kpi"].get(f"toplam_{_pre}", 0) or 0
+        _eur = data["kpi"].get(f"toplam_{_pre}_eur", 0) or 0
+        _usd = data["kpi"].get(f"toplam_{_pre}_usd", 0) or 0
+        data["kpi"][f"toplam_{_pre}_genel"] = round(_tl + _eur * _eur_r + _usd * _usd_r, 2)
+
     data["parse_sure"] = round(time.time() - t0, 2)
     log.info(f"Parse OK ({data['parse_sure']}s) -- "
              f"{data['kpi'].get('islem_sayisi', 0)} islem, "
@@ -813,9 +879,8 @@ _loop = None
 
 class FH(FileSystemEventHandler):
     def __init__(self): self._t = 0
-    def on_modified(self, e):
-        if e.is_directory: return
-        fn = os.path.basename(e.src_path).lower()
+    def _trigger(self, src_path):
+        fn = os.path.basename(src_path).lower()
         if fn.startswith("~$") or not fn.endswith((".xlsm", ".xlsx", ".xls")): return
         now = time.time()
         if now - self._t < 3: return
@@ -823,6 +888,19 @@ class FH(FileSystemEventHandler):
         log.info("Dosya degisti -> yeniden okunuyor")
         if _loop and _loop.is_running():
             asyncio.run_coroutine_threadsafe(_reload(), _loop)
+    def on_modified(self, e):
+        if e.is_directory: return
+        self._trigger(e.src_path)
+    def on_created(self, e):
+        if e.is_directory: return
+        self._trigger(e.src_path)
+    def on_moved(self, e):
+        if e.is_directory: return
+        self._trigger(e.dest_path)
+    def on_deleted(self, e):
+        # Atomic-replace paterninde (yaz->sil->yeniden adlandir) olusan
+        # gecici silme olaylarini yoksay -- gercek dosya on_created ile yakalanacak
+        pass
 
 
 async def _reload():
@@ -910,8 +988,8 @@ BASE = Path(__file__).parent
 security = HTTPBasic()
 
 def verify(credentials: HTTPBasicCredentials = Depends(security)):
-    ok_user = secrets.compare_digest(credentials.username, os.environ.get("KASA_USER", "CHANGE-ME-USER"))
-    ok_pass = secrets.compare_digest(credentials.password, os.environ.get("KASA_PASS", "CHANGE-ME-PASS"))
+    ok_user = secrets.compare_digest(credentials.username, os.environ.get("KASA_USER", "kasa"))
+    ok_pass = secrets.compare_digest(credentials.password, os.environ.get("KASA_PASS", "kasa2026"))
     if not (ok_user and ok_pass):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                             detail="Yetkisiz", headers={"WWW-Authenticate": "Basic"})
@@ -988,6 +1066,13 @@ async def chartjs():
     return PlainTextResponse("// Chart.js not found", status_code=404)
 
 
+@app.get("/manifest.json")
+async def manifest():
+    p = BASE / "manifest.json"
+    if p.exists(): return FileResponse(p, media_type="application/manifest+json")
+    return JSONResponse({"hata": "manifest.json yok"}, status_code=404)
+
+
 @app.websocket("/ws")
 async def ws_ep(ws: WebSocket):
     await mgr.connect(ws)
@@ -1024,11 +1109,13 @@ def main():
     pa.add_argument("--port", type=int, default=8765)
     pa.add_argument("--host", default="0.0.0.0")
     pa.add_argument("--polling", action="store_true")
-    pa.add_argument("--user", default=None, help="Basic Auth kullanici - KASA_USER env var ile de verilebilir")
-    pa.add_argument("--password", default=None, help="Basic Auth sifresi - KASA_PASS env var ile de verilebilir")
+    pa.add_argument("--user", default="kasa")
+    pa.add_argument("--password", default="kasa2026")
+    pa.add_argument("--ssl-cert", default=None)
+    pa.add_argument("--ssl-key", default=None)
     a = pa.parse_args()
-    if a.user: os.environ["KASA_USER"] = a.user
-    if a.password: os.environ["KASA_PASS"] = a.password
+    os.environ["KASA_USER"] = a.user
+    os.environ["KASA_PASS"] = a.password
     excel_path = os.path.abspath(a.file)
     if not os.path.exists(excel_path):
         log.error(f"Dosya yok: {excel_path}")
@@ -1046,9 +1133,14 @@ def main():
     ob.schedule(h, wd, recursive=False)
     ob.start()
     threading.Thread(target=_mdns_register, args=(a.port,), daemon=True).start()
-    log.info(f"Dashboard: http://localhost:{a.port}")
+    proto = "https" if (a.ssl_cert and a.ssl_key) else "http"
+    log.info(f"Dashboard: {proto}://localhost:{a.port}")
     try:
-        uvicorn.run(app, host=a.host, port=a.port, log_level="info")
+        kwargs = {"host": a.host, "port": a.port, "log_level": "info"}
+        if a.ssl_cert and a.ssl_key:
+            kwargs["ssl_certfile"] = a.ssl_cert
+            kwargs["ssl_keyfile"] = a.ssl_key
+        uvicorn.run(app, **kwargs)
     finally:
         ob.stop()
         ob.join()

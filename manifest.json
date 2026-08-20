@@ -1,0 +1,11 @@
+{
+  "name": "Kasa Takip",
+  "short_name": "Kasa",
+  "start_url": "/",
+  "scope": "/",
+  "display": "browser",
+  "background_color": "#faf9f6",
+  "theme_color": "#14130f",
+  "orientation": "any",
+  "lang": "tr"
+}

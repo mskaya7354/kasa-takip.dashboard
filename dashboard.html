@@ -5,6 +5,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Kasa Takip &mdash; Dashboard</title>
+<link rel="manifest" href="/manifest.json" />
+<meta name="apple-mobile-web-app-title" content="Kasa" />
+<meta name="theme-color" content="#14130f" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preload" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
@@ -71,14 +74,31 @@
   .chip.subtle{background:transparent}
   .chip .mono{font-size:11px;color:var(--muted)}
   .btn{padding:7px 14px;border-radius:8px;border:1px solid var(--rule);background:var(--card);font-size:12.5px;font-weight:500;color:var(--ink-2);transition:border-color 120ms,background 120ms}
+  .btn.subtle{background:transparent;color:var(--muted);font-size:11.5px;padding:6px 10px}
+  .btn.subtle:hover{color:var(--ink-2);border-color:var(--rule-strong)}
+  .date-input{font-family:var(--mono);color-scheme:light}
+  .date-range-sep{color:var(--rule-strong);font-size:12px}
+  .date-range-arrow{color:var(--muted);font-size:11px}
   .ddl{padding:6px 10px;border-radius:8px;border:1px solid var(--rule);background:var(--card);font-size:12.5px;font-weight:500;color:var(--ink-2);font-family:var(--sans);cursor:pointer;outline:none}
+  .msel{position:relative;display:inline-block}
+  .msel-btn{display:inline-flex;align-items:center;gap:6px;min-width:150px;justify-content:space-between}
+  .msel-caret{font-size:10px;color:var(--muted)}
+  .msel-panel{position:absolute;top:calc(100% + 4px);left:0;z-index:40;background:var(--card);border:1px solid var(--rule);border-radius:10px;box-shadow:0 6px 20px rgba(20,19,15,.12);min-width:220px;max-width:320px;padding:8px}
+  .msel-actions{display:flex;gap:6px;padding-bottom:6px;margin-bottom:6px;border-bottom:1px solid var(--rule)}
+  .msel-actions button{flex:1;font-size:11px;padding:5px 8px;border-radius:6px;border:1px solid var(--rule);background:var(--paper-2);color:var(--ink-2);cursor:pointer;font-family:var(--sans)}
+  .msel-actions button:hover{border-color:var(--rule-strong)}
+  .msel-list{max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:1px}
+  .msel-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:12.5px;color:var(--ink-2);cursor:pointer}
+  .msel-item:hover{background:var(--paper-2)}
+  .msel-item input{cursor:pointer}
+  .msel-item span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .ddl:hover{border-color:var(--rule-strong)}
   .ddl:focus{border-color:var(--ink)}
   .btn:hover{border-color:var(--rule-strong)}
   .btn.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
   .btn.primary:hover{background:#000}
 
-  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-bottom:var(--sp-8);border:1px solid var(--rule);border-radius:var(--r-lg);background:var(--card);overflow:hidden;box-shadow:var(--shadow-sm)}
+  .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:0;margin-bottom:var(--sp-8);border:1px solid var(--rule);border-radius:var(--r-lg);background:var(--card);overflow:hidden;box-shadow:var(--shadow-sm)}
   .kpi{padding:var(--sp-5) var(--sp-6);border-right:1px solid var(--rule);display:flex;flex-direction:column;gap:var(--sp-3);min-width:0}
   .kpi:last-child{border-right:0}
   .kpi-head{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--sp-3);min-height:32px}
@@ -94,10 +114,18 @@
   .kpi .sub-row{display:flex;gap:var(--sp-4);font-size:11.5px;color:var(--muted);flex-wrap:wrap;padding-top:var(--sp-2);border-top:1px dashed var(--rule);margin-top:auto}
   .kpi .sub-row > div{display:flex;flex-direction:column;gap:2px;min-width:0}
   .kpi .sub-row b{color:var(--ink-2);font-family:var(--mono);font-weight:500}
+  .kpi .sub-row.wide{justify-content:space-between;gap:var(--sp-5)}
+  .kpi .sub-row.wide > div{font-size:12.5px}
+  .kpi .sub-row.wide b{font-size:14px}
+  .kpi .sub-row.wide > div:last-child b{color:var(--ink);font-weight:700}
   .kpi-list{display:flex;flex-direction:column;gap:3px;font-size:12px;max-height:120px;overflow-y:auto}
   .kpi-list-row{display:flex;justify-content:space-between;gap:var(--sp-2);padding:1px 0}
 
-  .grid-2{display:grid;grid-template-columns:1.45fr 1fr;gap:var(--sp-5);margin-bottom:var(--sp-6);align-items:start}
+  .grid-2{display:grid;grid-template-columns:1.45fr 1fr;gap:var(--sp-5);margin-bottom:var(--sp-6);align-items:stretch}
+  .grid-2 > .panel{display:flex;flex-direction:column}
+  .grid-2 > .side-stack{min-width:0}
+  .side-stack > .panel{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
+  .side-stack .alerts{flex:1 1 0;min-height:240px;overflow-y:auto}
   .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-5);margin-bottom:var(--sp-6)}
   .panel{background:var(--card);border:1px solid var(--rule);border-radius:var(--r-lg);padding:var(--p-pad);box-shadow:var(--shadow-sm)}
   .panel + .panel{margin-top:var(--sp-5)}
@@ -124,6 +152,14 @@
   .summary-row{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;gap:var(--sp-2)}
   .summary-footer{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:var(--sp-2);padding-top:6px;border-top:1px solid var(--rule);gap:var(--sp-2);flex-wrap:wrap}
   .summary-footer b{color:var(--ink-2);font-family:var(--mono);font-weight:500}
+  .chk-hero{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}
+  .chk-hero-tile{border-radius:var(--r-md);padding:var(--sp-3) var(--sp-4);border:1px solid var(--rule)}
+  .chk-hero-tile.wait{background:var(--accent-soft);border-color:oklch(0.62 0.12 75 / .3)}
+  .chk-hero-tile.ok{background:var(--positive-soft);border-color:oklch(0.58 0.1 155 / .3)}
+  .chk-hero-lbl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;color:var(--muted);margin-bottom:4px}
+  .chk-hero-tile.wait .chk-hero-lbl{color:var(--accent-ink)}
+  .chk-hero-tile.ok .chk-hero-lbl{color:var(--positive)}
+  .chk-hero-val{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--ink)}
   .side-stack{display:flex;flex-direction:column;gap:var(--sp-5)}
   .fx-chart{margin-top:var(--sp-3)}
 
@@ -131,7 +167,7 @@
   .chart-wrap.tall{height:320px}
   .chart-wrap.short{height:160px}
 
-  .bank-list{display:flex;flex-direction:column;max-height:480px;overflow-y:auto;margin:calc(var(--sp-3) * -1) 0}
+  .bank-list{display:flex;flex-direction:column;flex:1 1 0;min-height:280px;overflow-y:auto;margin:calc(var(--sp-3) * -1) 0}
   .bank-item{padding:var(--sp-3) 0;border-bottom:1px dashed var(--rule)}
   .bank-item:last-child{border-bottom:0}
   .bank-row{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(140px,200px) minmax(110px,auto);align-items:center;gap:var(--sp-4);min-height:40px}
@@ -160,9 +196,9 @@
   .badge{display:inline-flex;align-items:center;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;font-family:var(--mono);background:var(--paper-2);color:var(--ink-2);letter-spacing:.03em;border:1px solid var(--rule);white-space:nowrap;flex-shrink:0;max-width:100%;overflow:hidden;text-overflow:ellipsis}
   .badge-row{display:flex;gap:4px;margin-top:6px;flex-wrap:nowrap;overflow:hidden;min-width:0;max-width:100%}
 
-  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
   .cal .dow{font-size:10px;font-weight:600;color:var(--muted-2);text-transform:uppercase;letter-spacing:.08em;padding:var(--sp-2) var(--sp-1);text-align:left}
-  .cal .day{border:1px solid var(--rule);border-radius:var(--r-sm);padding:var(--sp-2);min-height:64px;background:var(--card);display:flex;flex-direction:column;gap:3px;position:relative;font-size:11px}
+  .cal .day{border:1px solid var(--rule);border-radius:var(--r-sm);padding:var(--sp-2);min-height:64px;min-width:0;background:var(--card);display:flex;flex-direction:column;gap:3px;position:relative;font-size:11px}
   .cal .day.off{background:var(--paper-2);color:var(--muted-2);border-color:transparent;min-height:36px}
   .cal .day.today{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink) inset}
   .cal .day.today::before{content:"";position:absolute;top:6px;right:6px;width:5px;height:5px;border-radius:50%;background:var(--accent)}
@@ -189,6 +225,7 @@
   .tx td .dir{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:4px;font-size:11px;font-family:var(--mono);margin-right:var(--sp-2);vertical-align:middle}
   .tx td .dir.in{background:var(--positive-soft);color:var(--positive)}
   .tx td .dir.out{background:var(--negative-soft);color:var(--negative)}
+  .tx td .dir.virman{background:var(--paper-2);color:var(--muted)}
   .tx .cell-main{font-weight:500;color:var(--ink);line-height:1.35}
   .tx .cell-sub{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.3}
 
@@ -356,8 +393,7 @@
       <div class="nav-group">
         <div class="nav-label">Genel</div>
         <a class="active"><span class="dot"></span>&Ouml;zet</a>
-        <a><span class="dot"></span>Nakit Ak&#305;&#351;</a>
-        <a><span class="dot"></span>Takvim</a>
+        <a><span class="dot"></span>Ayl&#305;k &Ouml;demeler</a>
       </div>
       <div class="nav-group">
         <div class="nav-label">&#304;&#351;lemler</div>
@@ -371,7 +407,6 @@
         <a><span class="dot"></span>Bankalar</a>
         <a><span class="dot"></span>D&ouml;viz</a>
         <a><span class="dot"></span>Kredi Kartlar&#305;</a>
-        <a><span class="dot"></span>Haked&#304;&#351;ler</a>
       </div>
     </nav>
     <div class="side-foot">
@@ -402,18 +437,21 @@
       <section class="kpis" id="kpi-row"></section>
 
       <section class="grid-2">
-        <div class="panel" id="cash-panel">
+        <div class="panel" id="monthly-pay-panel">
           <div class="panel-head">
             <div>
-              <div class="ttl">Nakit <em>ak&#305;&#351;&#305;</em></div>
-              <div class="sub" id="cash-sub">Son 6 ay</div>
+              <div class="ttl">Ayl&#305;k <em>&ouml;demeler</em></div>
+              <div class="sub" id="mpay-sub">&mdash;</div>
             </div>
-            <div class="nav-arrows">
-              <button class="btn" onclick="changeCF(-1)">&#8592;</button>
-              <button class="btn" onclick="changeCF(1)">&#8594;</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <select id="mpay-year" onchange="renderMonthlyPayments()" class="ddl"></select>
+              <select id="mpay-month" onchange="renderMonthlyPayments()" class="ddl">
+                <option value="all">T&uuml;m aylar</option>
+              </select>
             </div>
           </div>
-          <div class="chart-wrap tall"><canvas id="c-cash"></canvas></div>
+          <div class="chart-wrap tall"><canvas id="c-mpay"></canvas></div>
+          <div id="mpay-list" style="margin-top:14px"></div>
         </div>
         <div class="panel" id="bank-panel">
           <div class="panel-head">
@@ -473,81 +511,6 @@
         </div>
       </section>
 
-      <section class="panel" id="hak-panel" style="display:none;margin-bottom:24px">
-        <div class="panel-head">
-          <div>
-            <div class="ttl">Planlanan <em>haked&#304;&#351;ler</em></div>
-            <div class="sub" id="hak-sub">&mdash;</div>
-          </div>
-        </div>
-        <table class="tx">
-          <thead>
-            <tr>
-              <th>Proje / &#304;&#351;</th>
-              <th>A&ccedil;&#305;klama</th>
-              <th class="num">Beklenen</th>
-              <th>Plan. Tarih</th>
-              <th>En Ge&ccedil;</th>
-              <th class="num">Yap&#305;lan</th>
-              <th class="num">Kalan</th>
-              <th>Durum</th>
-            </tr>
-          </thead>
-          <tbody id="hak-body"></tbody>
-        </table>
-      </section>
-
-      <section class="grid-2">
-        <div class="panel" id="cal-panel">
-          <div class="panel-head">
-            <div>
-              <div class="ttl">Vade <em>takvimi</em></div>
-              <div class="sub" id="cal-sub">&mdash;</div>
-            </div>
-            <div class="nav-arrows">
-              <button class="btn" onclick="changeCalMonth(-1)">&#8592;</button>
-              <button class="btn" onclick="changeCalMonth(1)">&#8594;</button>
-            </div>
-          </div>
-          <div class="cal" id="cal"></div>
-          <div class="cal-legend">
-            <span><span class="dot dot-in"></span>Tahsilat</span>
-            <span><span class="dot dot-out"></span>&Ouml;deme</span>
-            <span><span class="dot dot-late"></span>Gecikmi&#351;</span>
-          </div>
-        </div>
-        <div class="side-stack">
-          <div class="panel" id="fx-panel">
-            <div class="panel-head">
-              <div><div class="ttl">D&ouml;viz</div><div class="sub">TCMB &middot; son kur</div></div>
-            </div>
-            <div class="fx-tiles" id="fx-tiles"></div>
-            <div class="chart-wrap short fx-chart"><canvas id="c-fx"></canvas></div>
-          </div>
-          <div class="panel">
-            <div class="panel-head">
-              <div><div class="ttl">Uyar&#305;lar</div><div class="sub" id="alert-sub">Dikkat gerektiren olaylar</div></div>
-            </div>
-            <div class="alerts" id="alerts"></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="grid-3">
-        <div class="panel">
-          <div class="panel-head"><div><div class="ttl">&Ouml;deme t&uuml;rleri</div><div class="sub">Tutar baz&#305;nda</div></div></div>
-          <div class="chart-wrap"><canvas id="c-types"></canvas></div>
-        </div>
-        <div class="panel">
-          <div class="panel-head"><div><div class="ttl">&Ouml;deme arac&#305;</div><div class="sub">En &ccedil;ok kullan&#305;lan 8 ara&ccedil;</div></div></div>
-          <div class="chart-wrap"><canvas id="c-tools"></canvas></div>
-        </div>
-        <div class="panel">
-          <div class="panel-head"><div><div class="ttl">Bu ay vs. ge&ccedil;en ay</div><div class="sub">G&uuml;nl&uuml;k birikimli net</div></div></div>
-          <div class="chart-wrap"><canvas id="c-compare"></canvas></div>
-        </div>
-      </section>
-
       <section class="panel" id="tx-panel">
         <div class="panel-head">
           <div>
@@ -564,9 +527,26 @@
         <div class="filter-bar">
           <select id="tx-year" onchange="renderTx()" class="ddl"></select>
           <select id="tx-month" onchange="renderTx()" class="ddl"></select>
-          <select id="tx-type" onchange="renderTx()" class="ddl">
-            <option value="all">T&uuml;m &ouml;deme t&uuml;rleri</option>
-          </select>
+          <div class="msel" id="tx-type-msel">
+            <button type="button" class="ddl msel-btn" onclick="toggleTxTypeMenu(event)">
+              <span id="tx-type-label">T&uuml;m &ouml;deme t&uuml;rleri</span>
+              <span class="msel-caret">&#9662;</span>
+            </button>
+            <div class="msel-panel" id="tx-type-panel" style="display:none">
+              <div class="msel-actions">
+                <button type="button" onclick="txTypeSelectAll()">T&uuml;m&uuml;n&uuml; se&ccedil;</button>
+                <button type="button" onclick="txTypeClearAll()">Temizle</button>
+              </div>
+              <div class="msel-list" id="tx-type-list"></div>
+            </div>
+          </div>
+          <span class="date-range-sep">|</span>
+          <input type="date" id="tx-date-from" onchange="renderTx()" class="ddl date-input" title="Ba&#351;lang&#305;&#231;" />
+          <span class="date-range-arrow">&rarr;</span>
+          <input type="date" id="tx-date-to" onchange="renderTx()" class="ddl date-input" title="Biti&#351;" />
+          <button class="btn subtle" id="tx-date-clear" onclick="clearTxDateRange()" style="display:none">Temizle</button>
+          <button class="btn subtle" onclick="setTxDateRange(7)">Son 7 g&uuml;n</button>
+          <button class="btn subtle" onclick="setTxDateRange(30)">Son 30 g&uuml;n</button>
         </div>
         <div class="summary-box" id="tx-summary" style="display:none"></div>
         <table class="tx">
@@ -681,15 +661,9 @@ function render(d) {
 
   renderKPIs(d);
   renderBanks(d.bakiyeler || []);
-  renderCashFlow(d.nakit_akisi || d.aylik || []);
-  renderCalendar(d);
+  renderMonthlyPayments();
   renderFX(d.kurlar || [], k);
-  renderAlerts(d);
-  renderTypes(d.odeme_turleri || []);
-  renderTools(d.odeme_araclari || []);
-  renderCompare(d.karsilastirma || {});
   renderCards(d.kredi_kartlari || []);
-  renderHakedisler(d.hakedisler || []);
   renderChecks();
   renderTx();
 }
@@ -705,27 +679,17 @@ function renderKPIs(d) {
   const items = [
     {
       label: `Kullanılabilir Bakiye <span class="tag">${k.banka_sayisi||0} banka</span>`,
-      value: k.toplam_kullanilabilir || 0, suffix: `<span class="cur">₺</span>`,
+      value: k.toplam_kullanilabilir_genel || 0, suffix: `<span class="cur">₺</span>`,
       sparkId: "sp-balance",
       sparkData: (d.bakiyeler||[]).map(b=>b.bakiye_tl||0).filter(v=>v>0),
       sparkColor: pal.ink,
-      bottom: `<div class="sub-row"><div><span>Toplam</span><b>${fmtK(k.toplam_bakiye)} ₺</b></div><div><span>Bloke</span><b>${fmtK(k.toplam_bloke)} ₺</b></div></div>`
-    },
-    {
-      label: "Bekleyen Ödeme",
-      value: k.bekleyen_odeme_tutar || 0, suffix: `<span class="cur">₺</span>`,
-      sparkId: "sp-rec",
-      sparkData: (d.bekleyen||[]).filter(b=>b.yon==='out').slice(0,12).map(b=>b.tutar_tl||0),
-      sparkColor: pal.accent,
-      bottom: `<div class="sub-row"><div><span>Bekleyen Tahsilat</span><b>${fmtK(k.bekleyen_tutar||0)} ₺</b></div><div><span>${k.bekleyen_gecikmis?'Gecikmiş':'Durum'}</span><b style="color:${k.bekleyen_gecikmis?'var(--negative)':'var(--ink-2)'}">${k.bekleyen_gecikmis?k.bekleyen_gecikmis+' adet':'Vade içi'}</b></div></div>`
-    },
-    {
-      label: "Net Akış",
-      value: k.net_akis || 0, suffix: `<span class="cur">₺</span>`, signed: true,
-      sparkId: "sp-cash",
-      sparkData: nk.map(n=>n.net||0),
-      sparkColor: (k.net_akis||0)>=0 ? pal.positive : pal.negative,
-      bottom: `<div class="sub-row"><div><span>Giriş</span><b>${fmtK(k.toplam_tahsilat)} ₺</b></div><div><span>Çıkış</span><b>${fmtK(k.toplam_odeme)} ₺</b></div>${cashDelta!==null?`<div><span>Değişim</span><b class="${cashDelta>=0?'pos':'neg'}" style="color:${cashDelta>=0?'var(--positive)':'var(--negative)'}">${cashDelta>=0?'▲':'▼'} ${Math.abs(cashDelta).toFixed(1)}%</b></div>`:""}</div>`
+      bottom: `<div class="sub-row wide">
+                  <div><span>TL</span><b>${fmtN(k.toplam_kullanilabilir, 2)} ₺</b></div>
+                  <div><span>EUR</span><b>${fmtN(k.toplam_kullanilabilir_eur, 2)} €</b></div>
+                  <div><span>USD</span><b>${fmtN(k.toplam_kullanilabilir_usd, 2)} $</b></div>
+                  <div><span>Toplam (TL karşılığı)</span><b>${fmtK(k.toplam_kullanilabilir_genel)} ₺</b></div>
+                </div>
+                <div class="sub-row" style="margin-top:6px"><div><span>Genel Bakiye</span><b>${fmtK(k.toplam_bakiye_genel)} ₺</b></div><div><span>Bloke</span><b>${fmtK(k.toplam_bloke_genel)} ₺</b></div></div>`
     }
   ];
 
@@ -807,81 +771,127 @@ function renderBanks(banks) {
   }).join("");
 }
 
-window.cfOffset = 0;
-window.changeCF = function(dir) {
-  window.cfOffset += dir;
-  renderCashFlow(fullData.nakit_akisi || fullData.aylik || []);
+window.renderMonthlyPayments = function() {
+  const rows = (fullData && fullData.aylik_odemeler) || [];
+  const aylar = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
+
+  // Yıl dropdown'unu doldur
+  const yearSel = $("mpay-year");
+  if (yearSel) {
+    const years = [...new Set(rows.map(r => r.yil))].sort((a,b) => b - a);
+    if (yearSel.options.length !== years.length) {
+      const cur = yearSel.value;
+      yearSel.innerHTML = "";
+      years.forEach(y => {
+        const o = document.createElement("option");
+        o.value = y; o.textContent = y;
+        yearSel.appendChild(o);
+      });
+      // Varsayılan: en güncel yıl (veya bu yıl)
+      const cy = new Date().getFullYear();
+      yearSel.value = (cur && years.includes(+cur)) ? cur : (years.includes(cy) ? cy : (years[0] || cy));
+    }
+  }
+  const selYear = +(yearSel?.value || new Date().getFullYear());
+
+  // Ay dropdown'unu doldur (bir kez)
+  const monthSel = $("mpay-month");
+  if (monthSel && monthSel.options.length <= 1) {
+    aylar.forEach((a,i) => {
+      const o = document.createElement("option");
+      o.value = i; o.textContent = a;
+      monthSel.appendChild(o);
+    });
+  }
+  const selMonth = $("mpay-month")?.value ?? "all";
+
+  // Seçili yıla göre 12 ay doldur
+  const byMonth = {};
+  rows.filter(r => r.yil === selYear).forEach(r => {
+    const mi = +r.ay_key.split("-")[1] - 1;
+    byMonth[mi] = (byMonth[mi] || 0) + (r.tutar || 0);
+  });
+
+  const listEl = $("mpay-list");
+
+  if (selMonth === "all") {
+    // ---- YIL GÖRÜNÜMÜ: 12 ay toplamı ----
+    const labels = aylar.map(a => a.substring(0,3));
+    const data = aylar.map((_,i) => byMonth[i] || 0);
+    const toplam = data.reduce((s,v) => s+v, 0);
+    const dolu = data.filter(v => v > 0).length;
+
+    if ($("mpay-sub")) $("mpay-sub").textContent = `${selYear} · ${fmtK(toplam)} ₺ toplam · ${dolu} ay`;
+
+    mkChart("c-mpay", {
+      type:"bar",
+      data:{ labels, datasets:[{ label:"Ödeme", data, backgroundColor: pal.accent, borderRadius:4, barPercentage:.7 }] },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false},
+                  tooltip:{...tt, callbacks:{ label:c=>`${aylar[c.dataIndex]}: ${fmtTL(c.raw)}` }} },
+        scales:{ x:{grid:{display:false}, border:{color:pal.rule}},
+                 y:{grid:{color:pal.rule}, border:{display:false}, ticks:{callback:v=>fmtK(v)}} }
+      }
+    });
+
+    if (listEl) {
+      const filled = aylar.map((a,i) => ({ad:a, tutar:byMonth[i]||0})).filter(x => x.tutar > 0);
+      listEl.innerHTML = filled.length ? (filled.map(x => {
+        const pct = toplam>0 ? (x.tutar/toplam*100) : 0;
+        return `<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0;border-bottom:1px dashed var(--rule)">
+          <div>${x.ad} <span style="color:var(--muted)">· %${pct.toFixed(1)}</span></div>
+          <div class="mono">${fmtTL(x.tutar)}</div></div>`;
+      }).join("") + mpayToplamSatiri(`${selYear} toplam`, toplam))
+      : `<div class="empty-state" style="padding:10px">Bu yıl için ödeme kaydı yok</div>`;
+    }
+  } else {
+    // ---- AY GÖRÜNÜMÜ: ödeme türü kırılımı ----
+    const mi = +selMonth;
+    const detay = (fullData.aylik_odeme_detay || [])
+      .filter(r => r.yil === selYear && (+r.ay_key.split("-")[1] - 1) === mi);
+    const grup = {};
+    detay.forEach(r => { grup[r.tur] = (grup[r.tur]||0) + (r.tutar||0); });
+    const arr = Object.entries(grup).sort((a,b) => b[1]-a[1]);
+    const toplam = arr.reduce((s,[,v]) => s+v, 0);
+
+    if ($("mpay-sub")) $("mpay-sub").textContent = `${aylar[mi]} ${selYear} · ${fmtK(toplam)} ₺ · ${arr.length} tür`;
+
+    // Her tür için ayrı renk (altın tonları çevresinde dağıt)
+    const renk = i => `hsl(${(i*137.5)%360}, 42%, 52%)`;
+    const datasets = arr.map(([k,v],i) => ({
+      label:k, data:[v], backgroundColor: renk(i), stack:"s",
+      borderColor:"#fff", borderWidth:1, barPercentage:.5, categoryPercentage:.9, maxBarThickness:160
+    }));
+
+    mkChart("c-mpay", {
+      type:"bar",
+      data:{ labels:[`${aylar[mi]} ${selYear}`], datasets },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false},
+                  tooltip:{...tt, callbacks:{ label:c=>`${c.dataset.label}: ${fmtTL(c.raw)} · %${toplam>0?(c.raw/toplam*100).toFixed(1):0}` }} },
+        scales:{ x:{stacked:true, grid:{display:false}, border:{color:pal.rule}},
+                 y:{stacked:true, grid:{color:pal.rule}, border:{display:false}, ticks:{callback:v=>fmtK(v)}} }
+      }
+    });
+
+    if (listEl) {
+      listEl.innerHTML = arr.length ? (arr.map(([k,v]) => {
+        const pct = toplam>0 ? (v/toplam*100) : 0;
+        return `<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0;border-bottom:1px dashed var(--rule)">
+          <div>${k} <span style="color:var(--muted)">· %${pct.toFixed(1)}</span></div>
+          <div class="mono">${fmtTL(v)}</div></div>`;
+      }).join("") + mpayToplamSatiri(`${aylar[mi]} ${selYear} toplam`, toplam))
+      : `<div class="empty-state" style="padding:10px">Bu ay için ödeme kaydı yok</div>`;
+    }
+  }
 };
 
-function renderCashFlow(rows) {
-  if (!rows || !rows.length) return;
-  const isCash = rows[0] && "tahsilat" in rows[0];
-
-  const dict = {};
-  rows.forEach(x => {
-     if (x.ay_str) dict[x.ay_str] = x;
-     else dict[x.ay] = x;
-  });
-
-  const labels = [];
-  const datasets = isCash ? [
-    { label:"Tahsilat", data: [], backgroundColor: pal.ink, borderRadius:4, barPercentage:.6 },
-    { label:"Ödeme", data: [], backgroundColor: pal.accentSoft, borderRadius:4, barPercentage:.6 },
-    { label:"Net", data: [], type:"line", borderColor:pal.accent, backgroundColor:"transparent", borderWidth:2, pointRadius:4, pointBackgroundColor:pal.accent, tension:.3 }
-  ] : [
-    { label:"Tutar", data: [], backgroundColor: pal.ink, borderRadius:4, barPercentage:.6 }
-  ];
-
-  const dt = new Date();
-  dt.setMonth(dt.getMonth() - 5 + (window.cfOffset * 6));
-
-  for (let i=0; i<6; i++) {
-    const m = (dt.getMonth()+1).toString().padStart(2, '0');
-    const k_str = `${dt.getFullYear()}-${m}`;
-    const k_old = dt.toLocaleDateString("en-US", {month:"short", year:"2-digit"});
-
-    labels.push(dt.toLocaleDateString("tr-TR", {month:"short", year:"numeric"}));
-
-    let found = dict[k_str] || dict[k_old];
-    if (!found) {
-        found = rows.find(x => x.ay.includes(dt.toLocaleDateString("en-US", {month:"short"})) && x.ay.includes(dt.getFullYear().toString().substring(2)));
-    }
-
-    if (found) {
-       if (isCash) {
-           datasets[0].data.push(found.tahsilat || 0);
-           datasets[1].data.push(-(found.odeme || 0));
-           datasets[2].data.push(found.net !== undefined ? found.net : ((found.tahsilat||0) - (found.odeme||0)));
-       } else {
-           datasets[0].data.push(found.tutar || 0);
-       }
-    } else {
-       if (isCash) {
-           datasets[0].data.push(0); datasets[1].data.push(0); datasets[2].data.push(0);
-       } else {
-           datasets[0].data.push(0);
-       }
-    }
-    dt.setMonth(dt.getMonth() + 1);
-  }
-
-  const subEl = document.getElementById("cash-sub");
-  if (subEl) {
-    if (window.cfOffset === 0) subEl.textContent = isCash ? "Son 6 ay (Gerçekleşen + Bekleyenler)" : "Son 6 ay";
-    else if (window.cfOffset > 0) subEl.textContent = `+${window.cfOffset*6} Ay İleri (Projeksiyon)`;
-    else subEl.textContent = `${Math.abs(window.cfOffset)*6} Ay Geri (Geçmiş)`;
-  }
-
-  mkChart("c-cash", {
-    type:"bar", data:{ labels, datasets },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{position:"top",align:"end",labels:{boxWidth:10,boxHeight:10,padding:14,font:{size:11}}},
-                tooltip:{...tt, callbacks:{ label:c=>`${c.dataset.label}: ${fmtTL(c.dataset.label === "Net" ? c.raw : Math.abs(c.raw))}` }} },
-      scales:{ x:{grid:{display:false}, border:{color:pal.rule}},
-               y:{grid:{color:pal.rule}, border:{display:false}, ticks:{callback:v=>fmtK(v)}} }
-    }
-  });
+function mpayToplamSatiri(etiket, toplam) {
+  return `<div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;padding:8px 0 2px;margin-top:4px;border-top:2px solid var(--ink)">
+    <div>${etiket}</div>
+    <div class="mono">${fmtTL(toplam)}</div></div>`;
 }
 
 let calMonthOffset = 0;
@@ -972,6 +982,7 @@ function renderCalendar(d) {
 }
 
 function renderFX(kurlar, k) {
+  if (!$("fx-tiles")) return;
   const eurCh = k.eur_degisim || 0;
   const usdCh = k.usd_degisim || 0;
   const eurPct = k.son_eur ? (eurCh/(k.son_eur-eurCh)*100) : 0;
@@ -1094,7 +1105,7 @@ function renderAlerts(d) {
   if ((k.net_akis||0) > 0) alerts.push({
     type:"ok", icon:"✓", ttl:"Net akış pozitif",
     desc:`Tahsilat ${fmtK(k.toplam_tahsilat)} ₺ · ödeme ${fmtK(k.toplam_odeme)} ₺`, time:"—",
-    action:{ panel:"cash-panel" }
+    action:{ panel:"monthly-pay-panel" }
   });
   if (!alerts.length) alerts.push({ type:"ok", icon:"✓", ttl:"Her şey yolunda", desc:"Dikkat gerektiren olay yok", time:"—" });
   $("alert-sub").textContent = `${alerts.length} olay`;
@@ -1395,7 +1406,17 @@ window.renderChecks = function() {
     if (grupArr.length) {
       sumEl.style.display = "block";
       sumEl.innerHTML =
-        `<div class="summary-header">
+        `<div class="chk-hero">
+          <div class="chk-hero-tile wait">
+            <div class="chk-hero-lbl">Bekleyen Çek</div>
+            <div class="chk-hero-val">${fmtTL(bekleyen)}</div>
+          </div>
+          <div class="chk-hero-tile ok">
+            <div class="chk-hero-lbl">Ödenen / Tahsil</div>
+            <div class="chk-hero-val">${fmtTL(odenen)}</div>
+          </div>
+        </div>` +
+        `<div class="summary-header" style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--rule)">
           <div class="h-ttl">Çek türü kırılımı</div>
           <div class="mono summary-total">${fmtTL(toplam)}</div>
         </div>` +
@@ -1405,11 +1426,7 @@ window.renderChecks = function() {
             <div>${k} <span class="muted">·  %${pct.toFixed(1)}</span></div>
             <div class="mono">${fmtTL(v)}</div>
           </div>`;
-        }).join("") +
-        `<div class="summary-footer">
-          <div>Bekleyen: <b>${fmtK(bekleyen)} ₺</b></div>
-          <div>Ödenen/Tahsil: <b>${fmtK(odenen)} ₺</b></div>
-        </div>`;
+        }).join("");
     } else {
       sumEl.style.display = "none";
     }
@@ -1444,13 +1461,80 @@ window.renderChecks = function() {
       <td class="mono">${t.vade || '—'}</td>
       <td>
         <div class="cell-main">${t.banka||'—'}</div>
-        ${t.aciklama?`<div class="cell-sub">${t.aciklama}</div>`:""}
+        ${(t.aciklama && t.aciklama!=='nan')?`<div class="cell-sub">${t.aciklama}</div>`:""}
       </td>
       <td class="muted">${t.tur||'—'}</td>
       <td class="num"><div class="cell-main">${fmtTL(t.tutar, 2)}</div></td>
       <td><span class="status-badge ${st}">${stTxt}</span></td>
     </tr>`;
   }).join("");
+};
+
+window.txTypeSelected = new Set();
+
+window.toggleTxTypeMenu = function(e) {
+  if (e) e.stopPropagation();
+  const panel = $("tx-type-panel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
+};
+
+document.addEventListener("click", e => {
+  const wrap = $("tx-type-msel");
+  const panel = $("tx-type-panel");
+  if (wrap && panel && panel.style.display !== "none" && !wrap.contains(e.target)) {
+    panel.style.display = "none";
+  }
+});
+
+window.txTypeToggle = function(checkbox) {
+  if (checkbox.checked) txTypeSelected.add(checkbox.value);
+  else txTypeSelected.delete(checkbox.value);
+  updateTxTypeLabel();
+  txPage = 0;
+  renderTx();
+};
+
+window.txTypeSelectAll = function() {
+  $("tx-type-list").querySelectorAll("input[type=checkbox]").forEach(cb => {
+    cb.checked = true;
+    txTypeSelected.add(cb.value);
+  });
+  updateTxTypeLabel();
+  txPage = 0;
+  renderTx();
+};
+
+window.txTypeClearAll = function() {
+  $("tx-type-list").querySelectorAll("input[type=checkbox]").forEach(cb => cb.checked = false);
+  txTypeSelected.clear();
+  updateTxTypeLabel();
+  txPage = 0;
+  renderTx();
+};
+
+function updateTxTypeLabel() {
+  const lbl = $("tx-type-label");
+  if (!lbl) return;
+  const n = txTypeSelected.size;
+  lbl.textContent = n === 0 ? "Tüm ödeme türleri" : (n === 1 ? [...txTypeSelected][0] : `${n} tür seçili`);
+}
+
+window.setTxDateRange = function(days) {
+  const to = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - (days - 1));
+  const fmt = d => d.toISOString().slice(0, 10);
+  $("tx-date-from").value = fmt(from);
+  $("tx-date-to").value = fmt(to);
+  txPage = 0;
+  renderTx();
+};
+
+window.clearTxDateRange = function() {
+  $("tx-date-from").value = "";
+  $("tx-date-to").value = "";
+  txPage = 0;
+  renderTx();
 };
 
 window.txPage = 0;
@@ -1494,26 +1578,29 @@ window.renderTx = function() {
     });
   }
 
-  // Ödeme türü dropdown'unu doldur (ÖDEME TÜRÜ kolonu)
-  const typeSel = $("tx-type");
-  if (typeSel) {
+  // Ödeme türü çoklu seçim listesini doldur (ÖDEME TÜRÜ kolonu)
+  const typeList = $("tx-type-list");
+  if (typeList) {
     const types = [...new Set(rows.map(r => r.odeme_turu).filter(Boolean))].sort();
-    if (typeSel.options.length - 1 !== types.length) {
-      const cur = typeSel.value;
-      typeSel.innerHTML = '<option value="all">T&uuml;m &ouml;deme t&uuml;rleri</option>';
-      types.forEach(t => {
-        const o = document.createElement("option");
-        o.value = t; o.textContent = t;
-        if (t === cur) o.selected = true;
-        typeSel.appendChild(o);
-      });
+    if (typeList.dataset.count != types.length) {
+      typeList.dataset.count = types.length;
+      typeList.innerHTML = types.map(t => `
+        <label class="msel-item">
+          <input type="checkbox" value="${t.replace(/"/g,'&quot;')}" ${txTypeSelected.has(t)?'checked':''} onchange="txTypeToggle(this)">
+          <span>${t}</span>
+        </label>`).join("");
+      // Artık var olmayan turleri secili kumeden temizle
+      [...txTypeSelected].forEach(t => { if (!types.includes(t)) txTypeSelected.delete(t); });
     }
+    updateTxTypeLabel();
   }
 
   // Filtreleri uygula
   const yr = $("tx-year")?.value || "all";
   const mo = $("tx-month")?.value || "all";
-  const type = $("tx-type")?.value || "all";
+  const dateFrom = $("tx-date-from")?.value || "";
+  const dateTo = $("tx-date-to")?.value || "";
+  const dateRangeActive = !!(dateFrom || dateTo);
   const parseTr = s => {
     if (!s) return null;
     if (s instanceof Date) return s;
@@ -1522,10 +1609,25 @@ window.renderTx = function() {
     const dt = new Date(s);
     return isNaN(dt) ? null : dt;
   };
+  const fromDt = dateFrom ? new Date(dateFrom + "T00:00:00") : null;
+  const toDt = dateTo ? new Date(dateTo + "T23:59:59") : null;
+
+  // Tarih aralığı aktifse yıl/ay dropdown'larını devre dışı bırak, tersine bırak
+  if (yearSel) yearSel.disabled = dateRangeActive;
+  if (monthSel) monthSel.disabled = dateRangeActive;
+  const clearBtn = $("tx-date-clear");
+  if (clearBtn) clearBtn.style.display = dateRangeActive ? "inline-flex" : "none";
+
   rows = rows.filter(r => {
-    if (type !== "all" && r.odeme_turu !== type) return false;
-    if (yr === "all" && mo === "all") return true;
+    if (txTypeSelected.size > 0 && !txTypeSelected.has(r.odeme_turu)) return false;
     const dt = parseTr(r.tarih_tam || r.tarih);
+    if (dateRangeActive) {
+      if (!dt) return false;
+      if (fromDt && dt < fromDt) return false;
+      if (toDt && dt > toDt) return false;
+      return true;
+    }
+    if (yr === "all" && mo === "all") return true;
     if (!dt) return yr === "all" && mo === "all";
     if (yr !== "all" && dt.getFullYear() !== +yr) return false;
     if (mo !== "all" && dt.getMonth() !== +mo) return false;
@@ -1601,7 +1703,7 @@ window.renderTx = function() {
       </td>
       <td>${t.banka||'—'}</td>
       <td class="muted">${t.odeme_araci||'—'}</td>
-      <td><span class="dir ${t.yon}">${t.yon==='in'?'↑':'↓'}</span>${t.yon==='in'?'Tahsilat':'Ödeme'}</td>
+      <td><span class="dir ${t.yon}">${t.yon==='in'?'↑':(t.yon==='virman'?'⇄':'↓')}</span>${t.yon==='in'?'Tahsilat':(t.yon==='virman'?'İç hareket':'Ödeme')}</td>
       <td class="num"><div class="cell-main">${amount}</div>${alt}</td>
       <td><span class="status-badge ${st}">${stTxt}</span></td>
     </tr>`;
@@ -1634,7 +1736,7 @@ document.querySelectorAll(".nav a").forEach(link => {
       window.scrollTo({top: 0, behavior: "smooth"});
       return;
     }
-    else if (text === "Nakit Akış") targetId = "cash-panel";
+    else if (text === "Aylık Ödemeler") targetId = "monthly-pay-panel";
     else if (text === "Takvim") targetId = "cal-panel";
     else if (text === "Bankalar") targetId = "bank-panel";
     else if (text === "Döviz") targetId = "fx-panel";
