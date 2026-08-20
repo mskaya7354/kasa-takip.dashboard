@@ -394,6 +394,7 @@
         <div class="nav-label">Genel</div>
         <a class="active"><span class="dot"></span>&Ouml;zet</a>
         <a><span class="dot"></span>Ayl&#305;k &Ouml;demeler</a>
+        <a><span class="dot"></span>Takvim</a>
       </div>
       <div class="nav-group">
         <div class="nav-label">&#304;&#351;lemler</div>
@@ -466,6 +467,26 @@
             </div>
           </div>
           <div class="bank-list" id="bank-list"></div>
+        </div>
+      </section>
+
+      <section class="panel" id="cal-panel">
+        <div class="panel-head">
+          <div>
+            <div class="ttl">&Ouml;deme <em>Takvimi</em></div>
+            <div class="sub" id="cal-sub">&mdash;</div>
+          </div>
+          <div class="nav-arrows">
+            <button class="btn" onclick="changeCalMonth(-1)">&larr;</button>
+            <button class="btn" onclick="gotoCalToday()">Bug&uuml;n</button>
+            <button class="btn" onclick="changeCalMonth(1)">&rarr;</button>
+          </div>
+        </div>
+        <div class="cal" id="cal"></div>
+        <div class="cal-legend">
+          <span><span class="dot dot-in"></span>Tahsilat</span>
+          <span><span class="dot dot-out"></span>&Ouml;deme</span>
+          <span><span class="dot dot-late"></span>Gecikmi&#351;</span>
         </div>
       </section>
 
@@ -671,6 +692,7 @@ function render(d) {
   renderCards(d.kredi_kartlari || []);
   renderChecks();
   renderTx();
+  renderCalendar(d);
 }
 
 function renderKPIs(d) {
@@ -902,6 +924,10 @@ function mpayToplamSatiri(etiket, toplam) {
 let calMonthOffset = 0;
 window.changeCalMonth = function(delta) {
   calMonthOffset += delta;
+  renderCalendar(fullData);
+};
+window.gotoCalToday = function() {
+  calMonthOffset = 0;
   renderCalendar(fullData);
 };
 
