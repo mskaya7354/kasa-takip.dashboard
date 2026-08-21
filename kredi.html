@@ -151,6 +151,7 @@
   table.tx.kredi-taksit tbody tr.paid td{color:var(--muted)}
   .scroll-box{max-height:320px;overflow-y:auto;border:1px solid var(--rule);border-radius:var(--r-sm)}
   .scroll-box table thead th{position:sticky;top:0;background:var(--card);z-index:1}
+  .bank-list.scroll-box{max-height:640px;padding:0 var(--sp-2)}
 
   .empty-state{text-align:center;padding:var(--sp-6) var(--sp-3);color:var(--muted);font-size:12px}
   .err-box{background:var(--negative-soft);border:1px solid var(--negative);border-radius:var(--r-md);padding:var(--sp-4) var(--sp-5);margin-bottom:var(--sp-5);color:var(--negative);font-family:var(--mono);font-size:12px;white-space:pre-wrap;display:none}
@@ -236,7 +237,7 @@
         </div>
         <div class="chart-wrap short" style="margin-bottom:var(--sp-5)"><canvas id="c-kredi-aylik"></canvas></div>
 
-        <div class="bank-list" id="kredi-list"></div>
+        <div class="bank-list scroll-box" id="kredi-list"></div>
       </div>
 
       <div class="panel" id="kredi-yaklasan-panel" style="margin-top:var(--sp-5);display:none">
