@@ -77,6 +77,16 @@
   .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-5);margin-bottom:var(--sp-6)}
   .chart-wrap{position:relative;height:260px}
   .chart-wrap.short{height:200px}
+  .chart-wrap.tall{height:300px}
+
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin-bottom:var(--sp-6);border:1px solid var(--rule);border-radius:var(--r-lg);background:var(--card);overflow:hidden;box-shadow:var(--shadow-sm)}
+  .kpi{padding:var(--sp-4);border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);display:flex;flex-direction:column;gap:6px;min-width:0}
+  .kpi:nth-child(3n){border-right:0}
+  .kpi:nth-last-child(-n+3){border-bottom:0}
+  .kpi .label{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .kpi .value{font-family:var(--serif);font-size:22px;line-height:1.1;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .kpi .sub{font-size:11px;color:var(--muted)}
+  @media(max-width:700px){ .kpis{grid-template-columns:repeat(2,1fr)} .kpi:nth-child(3n){border-right:1px solid var(--rule)} .kpi:nth-child(2n){border-right:0} .kpi:nth-last-child(-n+3){border-bottom:1px solid var(--rule)} .kpi:nth-last-child(-n+2){border-bottom:0} }
 
   .bank-list{display:flex;flex-direction:column;gap:0}
   .bank-item{padding:var(--sp-3) 0;border-bottom:1px dashed var(--rule)}
@@ -216,21 +226,13 @@
           </div>
         </div>
 
-        <div class="chk-hero">
-          <div class="chk-hero-tile wait">
-            <div class="chk-hero-lbl">Toplam Finansman</div>
-            <div class="chk-hero-val" id="kredi-stat-finansman">&mdash;</div>
-          </div>
-          <div class="chk-hero-tile ok">
-            <div class="chk-hero-lbl">&Ouml;denen Taksit</div>
-            <div class="chk-hero-val" id="kredi-stat-odenen">&mdash;</div>
-          </div>
-        </div>
+        <div class="kpis" id="kredi-kpis"></div>
 
         <div class="grid-2">
-          <div class="chart-wrap short"><canvas id="c-kredi-banka"></canvas></div>
-          <div class="chart-wrap short"><canvas id="c-kredi-tur"></canvas></div>
+          <div class="chart-wrap tall"><canvas id="c-kredi-banka"></canvas></div>
+          <div class="chart-wrap tall"><canvas id="c-kredi-tur"></canvas></div>
         </div>
+        <div class="chart-wrap short" style="margin-bottom:var(--sp-5)"><canvas id="c-kredi-aylik"></canvas></div>
 
         <div class="bank-list" id="kredi-list"></div>
       </div>
@@ -274,6 +276,7 @@ function mkChart(id, cfg) {
   try { charts[id] = new Chart(el, cfg); } catch(e) { console.error(id, e); }
 }
 function setLive(state, lbl) { const el = $("live-ind"); el.className = "live " + state; $("live-lbl").textContent = lbl; }
+const MONTHS = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
 
 /* ============ Kredi parse mantığı (server.py'nin kasa dashboard.html'i ile AYNI, değiştirilmedi) ============ */
 const KREDI_TYPE_KEYWORDS = [
@@ -375,8 +378,12 @@ function parseKrediWorkbook(workbook) {
       if (key.indexOf(normTR2('PROJE NO')) === 0) meta.projeNo = row[1];
       else if (key.indexOf(normTR2('KULLANDIRIM TARİH')) === 0 || key.indexOf(normTR2('KULLANIM TARİH')) === 0) meta.kullandirimTarihi = krediParseDateAny(row[1]);
       else if (key === normTR2('KULLANDIRIM')) meta.kullandirim = row[1] || row[2] || null;
+      else if (key === normTR2('KAR ORANI') || key === normTR2('KOMİSYON') || key === normTR2('KULLANDIRIM MASRAFI') || key === normTR2('KREDİ KULLANDIRIM')) meta.maliyetAlanlari.push([row[0], row[1]]);
+      else if (key.indexOf(normTR2('FAİZ ORANI')) === 0) meta.maliyetAlanlari.push([row[0], row[1]]);
       else if (key.indexOf(normTR2('FİNANSMAN TUTARI')) === 0) meta.finansmanTutari = krediParseTutar(row[1]);
+      else if (key.indexOf(normTR2('TOPLAM TAKSİT TUTARI')) === 0) meta.toplamTaksitBeyan = krediParseTutar(row[1]);
       else if (key.indexOf(normTR2('AD SOYAD')) === 0 || key.indexOf(normTR2('ÜNVAN')) === 0) meta.unvan = row[1];
+      else if (key.indexOf(normTR2('ŞUBE')) === 0) meta.sube = row[1];
       else if (key.indexOf(normTR2('TOPLAM KREDİ RİSKİ')) === 0) meta.finansmanTutari = krediParseTutar(row[1]);
       else if (key.indexOf(normTR2('KREDİ AÇILIŞ TUTARI')) === 0) meta.finansmanTutari = krediParseTutar(row[1]);
       else if (key.indexOf(normTR2('KREDİ HESAP NO')) === 0) meta.krediHesapNo = row[1];
@@ -387,7 +394,10 @@ function parseKrediWorkbook(workbook) {
       for (var a = 0; a < arguments.length; a++) { var n = normTR2(arguments[a]); for (var c = 0; c < header.length; c++) if (header[c].indexOf(n) !== -1) return c; }
       return -1;
     }
-    var idxSira = col('SIRA NO','TAKSİT NO'), idxTarih = col('TAKSİT TARİHİ','TARİH'), idxTaksit = col('TAKSİT TUTARI'), idxDurum = col('ÖDEME DURUMU');
+    var idxSira = col('SIRA NO','TAKSİT NO'), idxTarih = col('TAKSİT TARİHİ','TARİH'), idxTaksit = col('TAKSİT TUTARI');
+    var idxAnapara = col('ANAPARA'), idxKar = col('KAR','FAİZ TUTARI');
+    var idxEk1 = col('KKDF'); var idxEk1Alt = idxEk1 === -1 ? col('KOMİSYON') : -1;
+    var idxBsmv = col('BSMV','VERGİ TUTARI'), idxKalan = col('TAHSİLAT ÖNCESİ KALAN ANAPARA','KALAN ANAPARA'), idxDurum = col('ÖDEME DURUMU');
     var taksitler = [];
     for (var r = headerRowIdx + 1; r < rows.length; r++) {
       var row2 = rows[r];
@@ -402,15 +412,52 @@ function parseKrediWorkbook(workbook) {
       var durum = null;
       if (idxDurum !== -1 && row2[idxDurum]) durum = normTR2(row2[idxDurum]).indexOf(normTR2('ÖDEND')) !== -1 ? 'ÖDENDİ' : 'BEKLİYOR';
       else if (tarihIso) durum = tarihIso <= today ? 'ÖDENDİ' : 'BEKLİYOR';
-      taksitler.push({ sira: siraVal, tarih: tarihIso, taksitTutari: krediParseTutar(idxTaksit !== -1 ? row2[idxTaksit] : 0) || 0, durum: durum });
+      taksitler.push({
+        sira: siraVal, tarih: tarihIso,
+        taksitTutari: krediParseTutar(idxTaksit !== -1 ? row2[idxTaksit] : 0) || 0,
+        anapara: idxAnapara !== -1 ? (krediParseTutar(row2[idxAnapara]) || 0) : 0,
+        kar: idxKar !== -1 ? (krediParseTutar(row2[idxKar]) || 0) : 0,
+        ekMasraf: idxEk1 !== -1 ? (krediParseTutar(row2[idxEk1]) || 0) : (idxEk1Alt !== -1 ? (krediParseTutar(row2[idxEk1Alt]) || 0) : 0),
+        bsmv: idxBsmv !== -1 ? (krediParseTutar(row2[idxBsmv]) || 0) : 0,
+        kalanAnapara: idxKalan !== -1 ? krediParseTutar(row2[idxKalan]) : null,
+        durum: durum
+      });
     }
     if (taksitler.length === 0) return;
     var odenenSayisi = 0, bekleyenSayisi = 0, bekleyenTutar = 0, odenenTutar = 0;
-    taksitler.forEach(function(t) { if (t.durum === 'ÖDENDİ') { odenenSayisi++; odenenTutar += t.taksitTutari; } else { bekleyenSayisi++; bekleyenTutar += t.taksitTutari; } });
+    var gercekToplamTaksit = 0, gercekToplamAnapara = 0, gercekToplamKar = 0, gercekToplamEk = 0, gercekToplamBsmv = 0;
+    taksitler.forEach(function(t) {
+      gercekToplamTaksit += t.taksitTutari; gercekToplamAnapara += t.anapara; gercekToplamKar += t.kar;
+      gercekToplamEk += t.ekMasraf; gercekToplamBsmv += t.bsmv;
+      if (t.durum === 'ÖDENDİ') { odenenSayisi++; odenenTutar += t.taksitTutari; } else { bekleyenSayisi++; bekleyenTutar += t.taksitTutari; }
+    });
+
+    var oranField = null, tutarField = null;
+    meta.maliyetAlanlari.forEach(function(pair) {
+      var val = krediParseTutar(pair[1]);
+      if (val === null || val === undefined) return;
+      var etNorm = normTR2(pair[0]);
+      if (!oranField && (etNorm.indexOf('ORANI') !== -1 || val < 1)) oranField = { etiket: pair[0], deger: val };
+      else if (!tutarField) tutarField = { etiket: pair[0], deger: val };
+    });
+    var finansman = meta.finansmanTutari || null;
+    var maliyetOranYuzde = null, maliyetTutar = null, oranKaynak = null, tutarKaynak = null;
+    if (oranField) { maliyetOranYuzde = Math.round(oranField.deger * 100 * 1000) / 1000; oranKaynak = oranField.etiket; }
+    if (tutarField) { maliyetTutar = Math.round(tutarField.deger * 100) / 100; tutarKaynak = tutarField.etiket; }
+    if (maliyetOranYuzde === null && maliyetTutar !== null && finansman) { maliyetOranYuzde = Math.round(maliyetTutar / finansman * 100 * 1000) / 1000; oranKaynak = 'hesaplanan'; }
+    if (maliyetTutar === null && maliyetOranYuzde !== null && finansman) { maliyetTutar = Math.round(maliyetOranYuzde / 100 * finansman * 100) / 100; tutarKaynak = 'hesaplanan'; }
+
     var kodFromName = codeBank.kod;
     var krediKodu = kodFromName || (meta.projeNo != null ? String(meta.projeNo) : null);
     var banka = codeBank.banka || meta.unvan || sheetName;
-    out.push({ sheet: sheetName, banka: banka, tur: tur, krediKodu: krediKodu, finansmanTutari: meta.finansmanTutari || null,
+    out.push({
+      sheet: sheetName, banka: banka, tur: tur, krediKodu: krediKodu,
+      projeNo: meta.projeNo != null ? meta.projeNo : kodFromName,
+      finansmanTutari: finansman,
+      maliyetOranYuzde: maliyetOranYuzde, oranKaynak: oranKaynak, maliyetTutar: maliyetTutar, tutarKaynak: tutarKaynak,
+      toplamTaksitBeyan: meta.toplamTaksitBeyan || null,
+      gercekToplamTaksit: Math.round(gercekToplamTaksit*100)/100, gercekToplamAnapara: Math.round(gercekToplamAnapara*100)/100,
+      gercekToplamKar: Math.round(gercekToplamKar*100)/100, gercekToplamEk: Math.round(gercekToplamEk*100)/100, gercekToplamBsmv: Math.round(gercekToplamBsmv*100)/100,
       krediHesapNo: meta.krediHesapNo || null, kullandirim: meta.kullandirim || null, kullandirimTarihi: meta.kullandirimTarihi || null,
       vadeAy: taksitler.length, odenenSayisi: odenenSayisi, bekleyenSayisi: bekleyenSayisi,
       odenenTutar: Math.round(odenenTutar*100)/100, bekleyenTutar: Math.round(bekleyenTutar*100)/100, taksitler: taksitler });
@@ -470,23 +517,57 @@ function renderKrediPanel() {
     return true;
   });
   $("kredi-sub").textContent = `${list.length} kredi` + (list.length!==KREDI_DATA.length ? ` (${KREDI_DATA.length} toplam)` : '');
-  $("kredi-stat-finansman").textContent = fmtTL(list.reduce((s,k)=>s+(k.finansmanTutari||0),0));
-  $("kredi-stat-odenen").textContent = fmtTL(list.reduce((s,k)=>s+(k.odenenTutar||0),0));
+  renderKrediKPI(list);
   renderKrediCharts(list); renderKrediList(list); renderKrediYaklasan(list);
 }
+
+function renderKrediKPI(list) {
+  const toplamFinansman = list.reduce((s,k)=>s+(k.finansmanTutari||0),0);
+  const toplamGercekOdeme = list.reduce((s,k)=>s+(k.gercekToplamTaksit||0),0);
+  const toplamKar = list.reduce((s,k)=>s+(k.gercekToplamKar||0),0);
+  const toplamOdenen = list.reduce((s,k)=>s+(k.odenenTutar||0),0);
+  const toplamBekleyen = list.reduce((s,k)=>s+(k.bekleyenTutar||0),0);
+  const cards = [
+    { label:'Kredi Sayısı', value: list.length.toLocaleString('tr-TR'), sub:'sayfa/kredi' },
+    { label:'Toplam Finansman', value: fmtTL(toplamFinansman), sub:'kullandırılan anapara' },
+    { label:'Toplam Ödeme (Taksit Planı)', value: fmtTL(toplamGercekOdeme), sub:'anapara + kâr + masraf' },
+    { label:'Toplam Kâr/Faiz Maliyeti', value: fmtTL(toplamKar), sub:'taksit planından' },
+    { label:'Ödenen Taksitler', value: fmtTL(toplamOdenen), sub:'bugüne kadar' },
+    { label:'Bekleyen Taksitler', value: fmtTL(toplamBekleyen), sub:'gelecek taksitler' },
+  ];
+  $("kredi-kpis").innerHTML = cards.map(c => `<div class="kpi"><div class="label">${c.label}</div><div class="value">${c.value}</div><div class="sub">${c.sub}</div></div>`).join("");
+}
+
+const KREDI_TUR_COLORS = { 'Murabaha':'#9c7a3b', 'Leasing':'#4d8d65', 'Teminat Mektubu':'#b0563a', 'KGF':'#c9a876', 'KFK':'#7d9d8f' };
 
 function renderKrediCharts(list) {
   _initChartDefaults();
   const byBanka = {}; list.forEach(k => { byBanka[k.banka] = (byBanka[k.banka]||0) + (k.finansmanTutari||0); });
-  const bankaEntries = Object.entries(byBanka).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const bankaEntries = Object.entries(byBanka).sort((a,b)=>b[1]-a[1]);
   mkChart('c-kredi-banka', { type: 'bar',
-    data: { labels: bankaEntries.map(e=>e[0]), datasets: [{ data: bankaEntries.map(e=>e[1]), backgroundColor: pal.accent, borderRadius: 4, maxBarThickness: 28 }] },
-    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{...tt, callbacks:{label:c=>fmtTL(c.parsed.y)}}}, scales:{ y:{ticks:{callback:v=>fmtK(v)}}, x:{ticks:{maxRotation:35,minRotation:35,font:{size:9}}} } } });
+    data: { labels: bankaEntries.map(e=>e[0]), datasets: [{ data: bankaEntries.map(e=>e[1]), backgroundColor: pal.accent, borderRadius: 4, maxBarThickness: 22 }] },
+    options: { indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{...tt, callbacks:{label:c=>fmtTL(c.parsed.x)}}}, scales:{ x:{ticks:{callback:v=>fmtK(v)}}, y:{ticks:{font:{size:10}}} } } });
   const byTur = {}; list.forEach(k => { byTur[k.tur] = (byTur[k.tur]||0) + (k.finansmanTutari||0); });
   const turEntries = Object.entries(byTur).sort((a,b)=>b[1]-a[1]);
   mkChart('c-kredi-tur', { type: 'doughnut',
-    data: { labels: turEntries.map(e=>e[0]), datasets: [{ data: turEntries.map(e=>e[1]), backgroundColor: [pal.accent, pal.positive, pal.negative, pal.ink, pal.muted, "#8a97a8"] }] },
+    data: { labels: turEntries.map(e=>e[0]), datasets: [{ data: turEntries.map(e=>e[1]), backgroundColor: turEntries.map(e=>KREDI_TUR_COLORS[e[0]]||pal.muted) }] },
     options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'right', labels:{boxWidth:10,font:{size:10}}}, tooltip:{...tt, callbacks:{label:c=>c.label+': '+fmtTL(c.parsed)}}} } });
+
+  const aylikMap = {};
+  list.forEach(k => k.taksitler.forEach(t => {
+    if (!t.tarih) return;
+    const ym = t.tarih.slice(0,7);
+    if (!aylikMap[ym]) aylikMap[ym] = { odenen:0, bekleyen:0 };
+    if (t.durum === 'ÖDENDİ') aylikMap[ym].odenen += t.taksitTutari; else aylikMap[ym].bekleyen += t.taksitTutari;
+  }));
+  const aylikKeys = Object.keys(aylikMap).sort();
+  mkChart('c-kredi-aylik', { type: 'bar',
+    data: { labels: aylikKeys.map(k=>{const p=k.split('-');return MONTHS[+p[1]-1].slice(0,3)+" '"+p[0].slice(2);}),
+      datasets: [
+        { label:'Ödenen', data: aylikKeys.map(k=>aylikMap[k].odenen), backgroundColor: pal.positive, stack:'s', borderRadius:3 },
+        { label:'Bekleyen', data: aylikKeys.map(k=>aylikMap[k].bekleyen), backgroundColor: pal.accent, stack:'s', borderRadius:3 }
+      ] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'top', labels:{boxWidth:10,font:{size:10}}}, tooltip:{...tt, callbacks:{label:c=>c.dataset.label+': '+fmtTL(c.raw)}}}, scales:{ x:{stacked:true, ticks:{font:{size:9}}}, y:{stacked:true, ticks:{callback:v=>fmtK(v)}} } } });
 }
 
 function renderKrediList(list) {
@@ -498,29 +579,41 @@ function renderKrediList(list) {
     const pctPaid = k.vadeAy ? Math.round(k.odenenSayisi / k.vadeAy * 100) : 0;
     const kullandirim = krediGetEfektifKullandirim(k);
     const kullandirimHtml = kullandirim ? `<span class="txt">${kullandirim}</span>` : `<span class="txt empty">kullandırım girilmemiş</span>`;
-    const taksitRows = k.taksitler.map(t => `<tr class="${t.durum==='ÖDENDİ'?'paid':''}"><td class="mono">${t.tarih||'—'}</td><td class="num mono">${fmtTL(t.taksitTutari,2)}</td><td><span class="status-badge ${t.durum==='ÖDENDİ'?'ok':'wait'}">${t.durum||'—'}</span></td></tr>`).join("");
+    const maliyetStr = (k.maliyetOranYuzde != null ? '%'+k.maliyetOranYuzde.toLocaleString('tr-TR') : '—') + ' · ' + (k.maliyetTutar != null ? fmtTL(k.maliyetTutar) : '—');
+    let kalanAnaparaBekleyen = 0; k.taksitler.forEach(t => { if (t.durum==='BEKLİYOR') kalanAnaparaBekleyen += (t.anapara||0); });
+    const taksitRows = k.taksitler.map((t,i) => `<tr class="${t.durum==='ÖDENDİ'?'paid':''}">
+        <td class="mono">${t.sira!=null?t.sira:i+1}</td><td class="mono">${t.tarih||'—'}</td>
+        <td class="num mono">${fmtTL(t.taksitTutari,2)}</td><td class="num mono">${fmtTL(t.anapara,2)}</td>
+        <td class="num mono">${fmtTL(t.kar,2)}</td><td class="num mono">${fmtTL(t.ekMasraf,2)}</td><td class="num mono">${fmtTL(t.bsmv,2)}</td>
+        <td><span class="status-badge ${t.durum==='ÖDENDİ'?'ok':'wait'}">${t.durum||'—'}</span></td>
+      </tr>`).join("");
     return `<div class="bank-item kredi-item${open}" data-sheet="${k.sheet.replace(/"/g,'&quot;')}">
       <div class="bank-row" data-role="toggle">
         <div class="name">
           <span class="chev">&#9656;</span>
           <div class="mark">${(k.banka[0]||'?').toUpperCase()}</div>
           <div><div class="nm">${k.banka} <span class="badge">${k.tur}</span> ${k.krediKodu?`<span class="badge">#${k.krediKodu}</span>`:''}</div>
-          <div class="sub">${k.odenenSayisi}/${k.vadeAy} taksit ödendi</div></div>
+          <div class="sub">${k.odenenSayisi}/${k.vadeAy} taksit ödendi &middot; Maliyet ${maliyetStr} &middot; Toplam ödeme ${fmtK(k.gercekToplamTaksit||0)} &middot; Kalan anapara ${fmtK(kalanAnaparaBekleyen)}</div></div>
         </div>
         <div class="bar-wrap"><div class="progress"><div class="fill positive" style="width:${pctPaid}%"></div></div><div class="bar-legend">${pctPaid}% ödendi</div></div>
         <div class="amount"><div class="big">${fmtTL(k.bekleyenTutar)}</div><div class="small">kalan taksit &middot; ${fmtK(k.finansmanTutari||0)} toplam</div></div>
       </div>
       <div class="kredi-detail">
         <div class="kredi-meta">
+          <div>Proje No <b>${k.projeNo!=null?k.projeNo:'—'}</b></div>
           ${k.krediHesapNo?`<div>Hesap No <b>${k.krediHesapNo}</b></div>`:''}
           <div>Vade <b>${k.vadeAy} ay</b></div>
           ${k.kullandirimTarihi?`<div>Kullandırım Tarihi <b>${k.kullandirimTarihi}</b></div>`:''}
+          <div>Gerçek Toplam Anapara <b>${fmtTL(k.gercekToplamAnapara)}</b></div>
+          <div>Gerçek Toplam Kâr/Faiz <b>${fmtTL(k.gercekToplamKar)}</b></div>
+          ${k.gercekToplamBsmv?`<div>Toplam BSMV/Vergi <b>${fmtTL(k.gercekToplamBsmv)}</b></div>`:''}
+          ${k.toplamTaksitBeyan?`<div>Beyan Edilen Toplam <b>${fmtTL(k.toplamTaksitBeyan)}</b></div>`:''}
         </div>
         <div class="kredi-not" data-role="not-wrap">
           <span class="muted" style="font-size:11px">Kullandırım:</span> ${kullandirimHtml}
           <span class="edit-ic" data-role="not-edit" title="Düzenle">&#9998;</span>
         </div>
-        <table class="tx kredi-taksit"><thead><tr><th>Tarih</th><th class="num">Tutar</th><th>Durum</th></tr></thead><tbody>${taksitRows}</tbody></table>
+        <div style="overflow-x:auto"><table class="tx kredi-taksit"><thead><tr><th>Sıra</th><th>Tarih</th><th class="num">Taksit</th><th class="num">Anapara</th><th class="num">Kâr</th><th class="num">Ek Masraf</th><th class="num">BSMV</th><th>Durum</th></tr></thead><tbody>${taksitRows}</tbody></table></div>
       </div>
     </div>`;
   }).join("");
