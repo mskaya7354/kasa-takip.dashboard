@@ -282,6 +282,34 @@ def parse_excel(path):
                         })
                     data["islemler"] = clean(islemler)
 
+                    # 2026-08-21: /odeme-takip sayfasi icin LIMITSIZ kopya -- yukaridaki
+                    # data["islemler"] (2000 sinirli, kasa'nin kendi kullandigi alan) HIC
+                    # DEGISTIRILMEDI. Bu ayri hesaplama global _islemler_full_cache'e yazilir,
+                    # `data` dict'ine (dolayisiyla /api/data yanitina ve WebSocket yayinina)
+                    # HIC girmez -- sadece kendi ayri /api/islemler-full uc noktasindan okunur.
+                    # Neden: 2000 siniri Excel'deki 2796 kayidin 796'sini (~%25 tutar) sessizce
+                    # gizliyordu; kasa ekranina dokunmadan sadece yeni sayfada duzeltiliyor.
+                    global _islemler_full_cache
+                    sub_full = df.dropna(subset=["tarih"]).sort_values("tarih", ascending=False).head(10000)
+                    islemler_full = []
+                    for _, r in sub_full.iterrows():
+                        cari_f = s(r.get("cari")) or s(r.get("odeme_turu"))
+                        islemler_full.append({
+                            "tarih": r["tarih"].strftime("%d.%m") if pd.notna(r["tarih"]) else "",
+                            "tarih_tam": r["tarih"].strftime("%d.%m.%Y") if pd.notna(r["tarih"]) else "",
+                            "cari": cari_f,
+                            "aciklama": s(r.get("aciklama")),
+                            "banka": s(r.get("banka")),
+                            "odeme_araci": s(r.get("odeme_araci")),
+                            "odeme_turu": s(r.get("odeme_turu")),
+                            "yon": "virman" if r.get("_is_virman", False) else ("in" if r.get("_is_in", True) else "out"),
+                            "tutar_tl": round(abs(float(r["tutar_tl"])), 2) if pd.notna(r["tutar_tl"]) else 0,
+                            "tutar_orj": float(r["tutar_orj"]) if ("tutar_orj" in df.columns and pd.notna(r.get("tutar_orj"))) else None,
+                            "doviz": s(r.get("doviz")) or "TRY",
+                            "durum": s(r.get("durum")),
+                        })
+                    _islemler_full_cache = clean(islemler_full)
+
                 # ---------- Bekleyen tahsilat / odeme ----------
                 if "durum" in df.columns:
                     bek = df[df["durum"].astype(str).str.upper().str.contains("BEKL", na=False)].copy()
@@ -877,6 +905,7 @@ latest = {}
 excel_path = ""
 kredi_path = ""
 _loop = None
+_islemler_full_cache = []  # bkz. parse_excel() -- /api/data'ya HIC girmez, sadece /api/islemler-full
 
 
 # ---------- Kredi dosyasi -- ham dosya servisi ----------
@@ -1130,6 +1159,13 @@ async def xlsxjs():
     p = BASE / "xlsx.full.min.js"
     if p.exists(): return FileResponse(p, media_type="application/javascript")
     return PlainTextResponse("// xlsx.full.min.js not found", status_code=404)
+
+
+@app.get("/api/islemler-full")
+async def islemler_full(credentials: HTTPBasicCredentials = Depends(verify)):
+    """Odeme Takip Panosu icin -- data['islemler']'deki 2000 sinirina TABI DEGIL.
+    /api/data ve WebSocket yayinini (dolayisiyla kasa ekranini) etkilemez."""
+    return JSONResponse({"islemler": _islemler_full_cache, "guncelleme": latest.get("guncelleme")})
 
 
 @app.get("/api/kredi-file")

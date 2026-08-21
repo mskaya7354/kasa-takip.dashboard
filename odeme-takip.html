@@ -341,8 +341,21 @@ let pgCurrent = 1, pgTotal = 1;
 const PAGE_SIZE = 50;
 const mselSelected = { tur: new Set(), arac: new Set() };
 
+// /api/data'daki d.islemler kasa ekraniyla paylasilan alan, 2000 kayitla sinirli.
+// Bu sayfa onun yerine /api/islemler-full'u kullanir (limitsiz) -- kasa'ya HIC dokunulmuyor,
+// sadece bu sayfa ayri, daha genis bir kaynaktan besleniyor.
+let latestIslemlerFull = [];
+let lastIslemlerFullGuncelleme = null;
+async function fetchIslemlerFull() {
+  try {
+    const r = await fetch('/api/islemler-full', { credentials: 'include' });
+    if (r.ok) { const d = await r.json(); latestIslemlerFull = d.islemler || []; lastIslemlerFullGuncelleme = d.guncelleme; }
+  } catch (e) { console.error('İşlem listesi (limitsiz) alınamadı', e); }
+}
+
 function adaptData(d) {
-  const paid = (d.islemler || []).filter(r => normDurum(r.durum) === 'ÖDENDİ').map(r => ({
+  const kaynak = latestIslemlerFull.length ? latestIslemlerFull : (d.islemler || []);
+  const paid = kaynak.filter(r => normDurum(r.durum) === 'ÖDENDİ').map(r => ({
     t: trDateToIso(r.tarih_tam), tutar: r.tutar_tl || 0, tur: r.odeme_turu || '(belirsiz)',
     arac: r.odeme_araci || r.banka || '(belirsiz)', durum: 'ÖDENDİ',
     islem: r.yon === 'in' ? 'TAHSİLAT' : (r.yon === 'out' ? 'ÖDEME' : 'VİRMAN'),
@@ -357,8 +370,9 @@ function adaptData(d) {
   ALL = paid.concat(pending);
 }
 
-function render(d) {
+async function render(d) {
   if (!d || d.hata) { $("err-box").textContent = "Sunucu hatası: " + (d?.hata||"bilinmiyor"); $("err-box").style.display="block"; $("loading").style.display="none"; return; }
+  if (d.guncelleme !== lastIslemlerFullGuncelleme) await fetchIslemlerFull();
   adaptData(d);
   $("loading").style.display = "none"; $("content").style.display = "block"; $("err-box").style.display = "none";
   updateMselOptions();
