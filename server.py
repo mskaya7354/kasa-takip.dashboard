@@ -290,6 +290,9 @@ def parse_excel(path):
                     # Neden: 2000 siniri Excel'deki 2796 kayidin 796'sini (~%25 tutar) sessizce
                     # gizliyordu; kasa ekranina dokunmadan sadece yeni sayfada duzeltiliyor.
                     global _islemler_full_cache
+                    # BELGE NO: paylasilan kolon-esleme (cm/df.rename, yukarida) hic dokunulmuyor --
+                    # burada, orijinal (yeniden adlandirilmamis) kolon adi dogrudan arniyor.
+                    _belge_col = next((c for c in df.columns if "BELGE" in str(c).upper()), None)
                     sub_full = df.dropna(subset=["tarih"]).sort_values("tarih", ascending=False).head(10000)
                     islemler_full = []
                     for _, r in sub_full.iterrows():
@@ -307,6 +310,7 @@ def parse_excel(path):
                             "tutar_orj": float(r["tutar_orj"]) if ("tutar_orj" in df.columns and pd.notna(r.get("tutar_orj"))) else None,
                             "doviz": s(r.get("doviz")) or "TRY",
                             "durum": s(r.get("durum")),
+                            "belge_no": s(r.get(_belge_col)) if _belge_col else "",
                         })
                     _islemler_full_cache = clean(islemler_full)
 
