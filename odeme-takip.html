@@ -158,7 +158,19 @@
 
   @media(max-width:1000px){ .cal-wrap{grid-template-columns:1fr} }
 
-  .tur-controls{display:flex;gap:var(--sp-3);flex-wrap:wrap;margin-bottom:var(--sp-4)}
+  .kasa-durum-summary{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:var(--sp-3);cursor:pointer;user-select:none}
+  .kasa-durum-summary:hover{opacity:.8}
+  .kd-title{font-family:var(--serif);font-size:20px;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
+  .kd-title em{font-style:italic;color:var(--accent-ink)}
+  .kd-title .chev{display:inline-block;font-size:13px;color:var(--muted);transition:transform 160ms;font-family:var(--sans)}
+  #kasa-durum-panel.open .kd-title .chev{transform:rotate(90deg)}
+  .kd-hint{font-size:10.5px;font-weight:400;color:var(--muted-2);font-style:italic;font-family:var(--sans)}
+  .kd-figures{display:flex;gap:var(--sp-4);font-size:12px;color:var(--muted)}
+  .kd-figures b{color:var(--ink);font-family:var(--mono);font-size:13px}
+  .kasa-durum-detail{display:none;margin-top:var(--sp-4);padding-top:var(--sp-4);border-top:1px solid var(--rule)}
+  #kasa-durum-panel.open .kasa-durum-detail{display:block}
+
+  .tur-controls{display:flex;gap:var(--sp-3);flex-wrap:wrap;margin-bottom:var(--sp-4);align-items:center}
   .tur-summary{width:100%;font-size:12.5px}
   .tur-summary th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--rule);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
   .tur-summary th.num{text-align:right}
@@ -303,13 +315,16 @@
       </div>
 
       <div class="panel" id="kasa-durum-panel">
-        <div class="panel-head">
-          <div><div class="ttl">Kasa <em>Durumu</em></div><div class="sub" id="kasa-durum-sub">&mdash;</div></div>
+        <div class="kasa-durum-summary" id="kasa-durum-summary" onclick="toggleKasaDurum()">
+          <div class="kd-title"><span class="chev" id="kasa-durum-chev">&#9656;</span> Kasa <em>Durumu</em> <span class="kd-hint">(detaylar için tıklayın)</span></div>
+          <div class="kd-figures" id="kasa-durum-figures">&mdash;</div>
         </div>
-        <div style="overflow-x:auto"><table class="tur-summary" id="kasa-durum-table">
-          <thead><tr><th>Banka</th><th class="num">Bakiye</th><th class="num">Kullanılabilir</th><th class="num">Bloke</th></tr></thead>
-          <tbody id="kasa-durum-body"></tbody>
-        </table></div>
+        <div class="kasa-durum-detail" id="kasa-durum-detail">
+          <div style="overflow-x:auto"><table class="tur-summary" id="kasa-durum-table">
+            <thead><tr><th>Banka</th><th class="num">Bakiye</th><th class="num">Kullanılabilir</th><th class="num">Bloke</th></tr></thead>
+            <tbody id="kasa-durum-body"></tbody>
+          </table></div>
+        </div>
       </div>
 
       <div class="panel">
@@ -323,13 +338,14 @@
             <option value="ÖDENDİ">Ödenen</option>
             <option value="BEKLİYOR">Bekleyen</option>
           </select>
+          <button class="btn" id="tur-clear-excl-btn" style="display:none" onclick="turSummaryClearExcluded()">&#8635; Hariç Tutulanları Temizle</button>
         </div>
-        <table class="tur-summary" id="tur-table"><thead><tr><th>&Ouml;deme T&uuml;r&uuml;</th><th class="num">Toplam</th><th class="num" id="tur-col2-lbl">Bekleyen</th></tr></thead><tbody id="tur-body"></tbody></table>
-        <div class="tur-foot">
+        <div class="tur-foot" id="tur-foot-top">
           <div><span class="l">Toplam</span><span class="v" id="tur-total">&mdash;</span></div>
           <div><span class="l">&Ouml;denen</span><span class="v paid" id="tur-odenen">&mdash;</span></div>
           <div><span class="l">Bekleyen</span><span class="v wait" id="tur-bekleyen">&mdash;</span></div>
         </div>
+        <div style="overflow-x:auto"><table class="tur-summary" id="tur-table"><thead><tr><th>&Ouml;deme T&uuml;r&uuml;</th><th class="num">Toplam</th><th class="num" id="tur-col2-lbl">Bekleyen</th></tr></thead><tbody id="tur-body"></tbody></table></div>
       </div>
 
       <div class="panel">
@@ -436,7 +452,7 @@ let calMonth = new Date();
 let selectedDayKey = null;
 let sortKey = 't', sortDir = -1;
 let pgCurrent = 1, pgTotal = 1;
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 15;
 const mselSelected = { tur: new Set(), arac: new Set() };
 
 // /api/data'daki d.islemler kasa ekraniyla paylasilan alan, 2000 kayitla sinirli.
@@ -480,13 +496,23 @@ async function render(d) {
   applyFilters();
 }
 
+let kasaDurumOpen = false;
+function toggleKasaDurum() {
+  kasaDurumOpen = !kasaDurumOpen;
+  $("kasa-durum-panel").classList.toggle('open', kasaDurumOpen);
+}
+
 function renderKasaDurum(banks) {
-  if (!banks.length) { $("kasa-durum-sub").textContent = "veri yok"; $("kasa-durum-body").innerHTML = '<tr><td colspan="4" class="empty-state">Veri yok</td></tr>'; return; }
+  if (!banks.length) {
+    $("kasa-durum-figures").textContent = "veri yok";
+    $("kasa-durum-body").innerHTML = '<tr><td colspan="4" class="empty-state">Veri yok</td></tr>';
+    return;
+  }
   const sorted = [...banks].sort((a,b)=>(b.bakiye_tl||0)-(a.bakiye_tl||0));
   const totalBak = sorted.reduce((s,b)=>s+(b.bakiye_tl||0),0);
   const totalKul = sorted.reduce((s,b)=>s+(b.kullanilabilir||0),0);
   const totalBlk = sorted.reduce((s,b)=>s+(b.bloke||0),0);
-  $("kasa-durum-sub").textContent = `${sorted.length} banka · toplam ${fmtTL(totalBak)}`;
+  $("kasa-durum-figures").innerHTML = `<div>${sorted.length} banka</div><div>Toplam Bakiye <b>${fmtTL(totalBak)}</b></div><div>Kullanılabilir <b>${fmtTL(totalKul)}</b></div><div>Bloke <b style="color:var(--accent-ink)">${fmtTL(totalBlk)}</b></div>`;
   $("kasa-durum-body").innerHTML = sorted.map(b => `<tr><td>${b.banka}</td><td class="num">${fmtTL(b.bakiye_tl,2)}</td><td class="num">${fmtTL(b.kullanilabilir,2)}</td><td class="num">${fmtTL(b.bloke,2)}</td></tr>`).join("")
     + `<tr style="font-weight:700;background:var(--paper-2)"><td>TOPLAM</td><td class="num">${fmtTL(totalBak,2)}</td><td class="num">${fmtTL(totalKul,2)}</td><td class="num">${fmtTL(totalBlk,2)}</td></tr>`;
 }
@@ -791,9 +817,11 @@ function renderTurSummary() {
   const p = selectedMonth.split('-');
   const excludedInMonth = turler.filter(t => turSummaryExcluded.has(t));
   let subText = (p.length===2 ? MONTHS[+p[1]-1]+' '+p[0] : selectedMonth) + ' · ' + included.length + ' kayıt';
-  if (excludedInMonth.length) subText += ` · ⛔ hariç: ${excludedInMonth.join(', ')}`;
+  if (excludedInMonth.length) subText += ` · ⛔ ${excludedInMonth.length} tür hariç tutuldu`;
   $("tur-sub").textContent = subText;
+  $("tur-clear-excl-btn").style.display = turSummaryExcluded.size ? 'inline-flex' : 'none';
 }
+function turSummaryClearExcluded() { turSummaryExcluded.clear(); renderTurSummary(); }
 
 /* ---------- İşlem tablosu (sıralanabilir + sayfalı) ---------- */
 document.querySelectorAll("#tbl thead th[data-sort]").forEach(th => {

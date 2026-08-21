@@ -149,6 +149,8 @@
   .kredi-not input{font-size:12px;padding:4px 8px;border:1px solid var(--rule-strong);border-radius:6px;font-family:var(--sans);flex:1;max-width:320px}
   table.tx.kredi-taksit{font-size:12px}
   table.tx.kredi-taksit tbody tr.paid td{color:var(--muted)}
+  .scroll-box{max-height:320px;overflow-y:auto;border:1px solid var(--rule);border-radius:var(--r-sm)}
+  .scroll-box table thead th{position:sticky;top:0;background:var(--card);z-index:1}
 
   .empty-state{text-align:center;padding:var(--sp-6) var(--sp-3);color:var(--muted);font-size:12px}
   .err-box{background:var(--negative-soft);border:1px solid var(--negative);border-radius:var(--r-md);padding:var(--sp-4) var(--sp-5);margin-bottom:var(--sp-5);color:var(--negative);font-family:var(--mono);font-size:12px;white-space:pre-wrap;display:none}
@@ -244,10 +246,10 @@
             <div class="sub" id="kredi-yaklasan-sub">&Ouml;n&uuml;m&uuml;zdeki 30 g&uuml;n</div>
           </div>
         </div>
-        <table class="tx">
+        <div class="scroll-box"><table class="tx">
           <thead><tr><th>Tarih</th><th>Banka</th><th>Kredi Kodu</th><th>T&uuml;r</th><th class="num">Tutar</th><th>Durum</th></tr></thead>
           <tbody id="kredi-yaklasan-body"></tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   </main>
@@ -613,7 +615,7 @@ function renderKrediList(list) {
           <span class="muted" style="font-size:11px">Kullandırım:</span> ${kullandirimHtml}
           <span class="edit-ic" data-role="not-edit" title="Düzenle">&#9998;</span>
         </div>
-        <div style="overflow-x:auto"><table class="tx kredi-taksit"><thead><tr><th>Sıra</th><th>Tarih</th><th class="num">Taksit</th><th class="num">Anapara</th><th class="num">Kâr</th><th class="num">Ek Masraf</th><th class="num">BSMV</th><th>Durum</th></tr></thead><tbody>${taksitRows}</tbody></table></div>
+        <div class="scroll-box" style="overflow-x:auto"><table class="tx kredi-taksit"><thead><tr><th>Sıra</th><th>Tarih</th><th class="num">Taksit</th><th class="num">Anapara</th><th class="num">Kâr</th><th class="num">Ek Masraf</th><th class="num">BSMV</th><th>Durum</th></tr></thead><tbody>${taksitRows}</tbody></table></div>
       </div>
     </div>`;
   }).join("");
