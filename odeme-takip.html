@@ -206,6 +206,7 @@
   .tur-foot .l{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:2px}
   .tur-foot .v{font-family:var(--mono);font-weight:600;font-size:15px}
   .tur-foot .v.wait{color:var(--accent-ink)} .tur-foot .v.paid{color:var(--positive)}
+  .tur-foot .cnt{display:block;font-size:10px;color:var(--muted);margin-top:1px}
 
   /* İşlem tablosu */
   .tx{font-size:12.5px;width:100%}
@@ -367,9 +368,9 @@
           <button class="btn" style="margin-left:auto" onclick="manuelGiderAddRow()">+ Gider Ekle</button>
         </div>
         <div class="tur-foot" id="tur-foot-top">
-          <div><span class="l">Toplam</span><span class="v" id="tur-total">&mdash;</span></div>
-          <div><span class="l">&Ouml;denen</span><span class="v paid" id="tur-odenen">&mdash;</span></div>
-          <div><span class="l">Bekleyen</span><span class="v wait" id="tur-bekleyen">&mdash;</span></div>
+          <div><span class="l">Toplam</span><span class="v" id="tur-total">&mdash;</span><span class="cnt" id="tur-total-count"></span></div>
+          <div><span class="l">&Ouml;denen</span><span class="v paid" id="tur-odenen">&mdash;</span><span class="cnt" id="tur-odenen-count"></span></div>
+          <div><span class="l">Bekleyen</span><span class="v wait" id="tur-bekleyen">&mdash;</span><span class="cnt" id="tur-bekleyen-count"></span></div>
         </div>
         <div style="overflow-x:auto"><table class="tur-summary gelir-table" id="tur-table"><thead><tr><th>&Ouml;deme T&uuml;r&uuml;</th><th class="num">Toplam</th><th class="num" id="tur-col2-lbl">Bekleyen</th></tr></thead><tbody id="tur-body"></tbody></table></div>
       </div>
@@ -1125,10 +1126,18 @@ function renderTurSummary() {
     let totalAll = inc.reduce((s,r)=>s+r.tutar,0);
     let odenenAll = inc.filter(r=>r.durum==='ÖDENDİ').reduce((s,r)=>s+r.tutar,0);
     let bekleyenAll = inc.filter(r=>r.durum!=='ÖDENDİ').reduce((s,r)=>s+r.tutar,0);
-    manuelRows.forEach(mr => { const amt = Number(mr.tutar)||0; totalAll += amt; if (mr.odendi) odenenAll += amt; else bekleyenAll += amt; });
+    let totalCount = inc.length, odenenCount = inc.filter(r=>r.durum==='ÖDENDİ').length, bekleyenCount = inc.filter(r=>r.durum!=='ÖDENDİ').length;
+    manuelRows.forEach(mr => {
+      const amt = Number(mr.tutar)||0;
+      totalAll += amt; totalCount++;
+      if (mr.odendi) { odenenAll += amt; odenenCount++; } else { bekleyenAll += amt; bekleyenCount++; }
+    });
     $("tur-total").textContent = fmtTL(totalAll);
     $("tur-odenen").textContent = fmtTL(odenenAll);
     $("tur-bekleyen").textContent = fmtTL(bekleyenAll);
+    $("tur-total-count").textContent = totalCount.toLocaleString('tr-TR') + ' kayıt';
+    $("tur-odenen-count").textContent = odenenCount.toLocaleString('tr-TR') + ' kayıt';
+    $("tur-bekleyen-count").textContent = bekleyenCount.toLocaleString('tr-TR') + ' kayıt';
     lastBekleyenToplam = bekleyenAll;
     updateGelirFarkBanner();
     return inc;
