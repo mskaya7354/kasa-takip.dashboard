@@ -412,7 +412,11 @@ function showToast(msg, type) {
 }
 
 /* ---------- Cari ay varsayılanı ---------- */
-function isoDate(d) { return d.toISOString().slice(0,10); }
+// YEREL tarih -- toISOString() KULLANMA: UTC'ye cevirir, TR (UTC+3) saatinde
+// gece yarisindan sonraki ilk 3 saatte bir onceki gunu dondurur (2026-08-26'da
+// bulunan gercek bug: ay filtresi "31.07 -> 30.08" gibi bir gun kayarak
+// geliyordu, takvimdeki "bugun" de bir gun geriden isaretleniyordu).
+function isoDate(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function currentMonthRange() {
   const now = new Date();
   return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: new Date(now.getFullYear(), now.getMonth()+1, 0) };
@@ -627,7 +631,7 @@ function calGotoToday() { calMonth = new Date(); calMonth.setDate(1); selectedDa
 function renderCalendar() {
   const y = calMonth.getFullYear(), m = calMonth.getMonth();
   const today = new Date(); today.setHours(0,0,0,0);
-  const todayKey = today.toISOString().slice(0,10);
+  const todayKey = isoDate(today);
   $("cal-month").textContent = MONTHS[m] + ' ' + y;
 
   const monthKey = y + '-' + String(m+1).padStart(2,'0');
@@ -876,7 +880,7 @@ function exportToExcel() {
   ws['!cols'] = [{wch:12},{wch:22},{wch:20},{wch:40},{wch:14},{wch:14},{wch:12},{wch:12}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'OdemeTakip');
-  XLSX.writeFile(wb, 'odeme_takip_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  XLSX.writeFile(wb, 'odeme_takip_' + isoDate(new Date()) + '.xlsx');
   showToast(filteredData.length + ' kayıt dışa aktarıldı.', 'success');
 }
 
