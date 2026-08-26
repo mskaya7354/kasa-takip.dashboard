@@ -9,6 +9,7 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import datetime, date, timedelta
 from pathlib import Path
+from typing import Any, Dict, List
 
 import pandas as pd
 import uvicorn
@@ -944,6 +945,38 @@ def _save_kredi_notlar(d):
         return False
 
 
+# ---------- Gelir Beklentileri (Odeme Takip Panosu -- Net Nakit/FARK paneli) ----------
+# /api/data ve WebSocket yayinina HIC girmez -- ayri, izole bir dosya + uc nokta.
+GELIR_BEKLENTI_PATH = Path(__file__).parent / "gelir_beklentileri.json"
+_gelir_beklenti_lock = threading.Lock()
+
+GELIR_BEKLENTI_SEED = [
+    {"tur": t, "tutar": 0} for t in [
+        "HANGAR FAZ 2", "HANGAR LEVHA", "TRT CAMİİ", "PİYALEPAŞA", "MONA 94",
+        "FİKİRTEPE", "NLK", "YASEMİN", "BANKA KREDİ", "BANKA KREDİ", "BANKA KREDİ",
+        "BANKA KREDİ", "AVANS", "AVANS", "AVANS", "TEMİNAT ÇÖZÜMÜ", "TEMİNAT ÇÖZÜMÜ",
+    ]
+]
+
+def _load_gelir_beklentileri():
+    try:
+        if GELIR_BEKLENTI_PATH.exists():
+            with _gelir_beklenti_lock:
+                return json.loads(GELIR_BEKLENTI_PATH.read_text(encoding="utf-8"))
+    except Exception as e:
+        log.error(f"gelir_beklentileri okunamadi: {e}")
+    return [dict(r) for r in GELIR_BEKLENTI_SEED]
+
+def _save_gelir_beklentileri(items):
+    try:
+        with _gelir_beklenti_lock:
+            GELIR_BEKLENTI_PATH.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+        return True
+    except Exception as e:
+        log.error(f"gelir_beklentileri yazilamadi: {e}")
+        return False
+
+
 def _wait_for_file(path, tries=5, delay=2):
     """Dosya (ozellikle bir automount'un ilk erisimde tetiklenme gecikmesi
     yuzunden) hemen gorunmeyebilir -- birkac kez kisa bekleyerek dene.
@@ -1199,6 +1232,22 @@ async def kredi_notlar_post(body: KrediNotIn, credentials: HTTPBasicCredentials 
     if not _save_kredi_notlar(d):
         return JSONResponse({"hata": "kaydedilemedi"}, status_code=500)
     return JSONResponse({"durum": "ok", "notlar": d})
+
+
+@app.get("/api/gelir-beklentileri")
+async def gelir_beklentileri_get(credentials: HTTPBasicCredentials = Depends(verify)):
+    return JSONResponse(_load_gelir_beklentileri())
+
+
+class GelirBeklentiIn(BaseModel):
+    items: List[Dict[str, Any]]
+
+
+@app.post("/api/gelir-beklentileri")
+async def gelir_beklentileri_post(body: GelirBeklentiIn, credentials: HTTPBasicCredentials = Depends(verify)):
+    if not _save_gelir_beklentileri(body.items):
+        return JSONResponse({"hata": "kaydedilemedi"}, status_code=500)
+    return JSONResponse({"durum": "ok"})
 
 
 @app.websocket("/ws")

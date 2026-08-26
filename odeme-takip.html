@@ -169,6 +169,28 @@
   .kd-figures b{color:var(--ink);font-family:var(--mono);font-size:13px}
   .kasa-durum-detail{display:none;margin-top:var(--sp-4);padding-top:var(--sp-4);border-top:1px solid var(--rule)}
   #kasa-durum-panel.open .kasa-durum-detail{display:block}
+  #gelir-fark-panel.open .kd-title .chev{transform:rotate(90deg)}
+  #gelir-fark-panel.open .kasa-durum-detail{display:block}
+
+  /* Net Nakit (FARK) banner + Gelir Beklentileri */
+  .gfb-row{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-3);margin-bottom:var(--sp-4)}
+  .gfb-col{border:1px solid var(--rule);border-radius:var(--r-md);padding:var(--sp-3) var(--sp-4);background:var(--paper-2)}
+  .gfb-label{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px}
+  .gfb-val{font-family:var(--serif);font-size:22px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .gfb-val.negative{color:var(--negative)} .gfb-val.positive{color:var(--positive)}
+  .gfb-fark{background:var(--accent-soft)}
+  tr.gelir-auto-row td{background:var(--accent-soft);font-weight:600}
+  tr.gelir-geldi-row td{background:var(--positive-soft);color:var(--positive)}
+  tr.gelir-geldi-row .gb-tur,tr.gelir-geldi-row .gb-tutar{color:var(--positive);text-decoration:line-through}
+  .gelir-table input[type=text],.gelir-table input[type=date]{border:1px solid transparent;background:transparent;padding:4px 6px;border-radius:6px;font-family:var(--sans);font-size:12.5px;color:var(--ink);width:100%}
+  .gelir-table input[type=text]:hover,.gelir-table input[type=date]:hover{border-color:var(--rule)}
+  .gelir-table input[type=text]:focus,.gelir-table input[type=date]:focus{outline:none;border-color:var(--accent);background:var(--paper)}
+  .gelir-table input[type=date]{font-family:var(--mono);font-size:11px;color-scheme:light}
+  .gelir-table input[type=date]:disabled{background:var(--paper-2);color:var(--muted-2)}
+  .gelir-table td.num input{text-align:right}
+  .gelir-geldi-check{width:15px;height:15px;cursor:pointer;accent-color:var(--positive)}
+  .gelir-del-btn{color:var(--muted-2);font-size:12px;padding:4px}
+  .gelir-del-btn:hover{color:var(--negative)}
 
   .tur-controls{display:flex;gap:var(--sp-3);flex-wrap:wrap;margin-bottom:var(--sp-4);align-items:center}
   .tur-summary{width:100%;font-size:12.5px}
@@ -348,6 +370,30 @@
         <div style="overflow-x:auto"><table class="tur-summary" id="tur-table"><thead><tr><th>&Ouml;deme T&uuml;r&uuml;</th><th class="num">Toplam</th><th class="num" id="tur-col2-lbl">Bekleyen</th></tr></thead><tbody id="tur-body"></tbody></table></div>
       </div>
 
+      <div class="panel" id="gelir-fark-panel">
+        <div class="panel-head">
+          <div><div class="ttl">Net Nakit <em>Durumu</em></div><div class="sub" id="gfb-sub">&mdash;</div></div>
+        </div>
+        <div class="gfb-row">
+          <div class="gfb-col gfb-gelir"><div class="gfb-label">Beklenen Gelir Toplamı</div><div class="gfb-val" id="gfb-gelir">₺0</div></div>
+          <div class="gfb-col gfb-odeme"><div class="gfb-label">Ödemeler Toplamı (Bekleyen)</div><div class="gfb-val" id="gfb-odeme">₺0</div></div>
+          <div class="gfb-col gfb-fark"><div class="gfb-label">Fark (Net Nakit)</div><div class="gfb-val" id="gfb-fark">₺0</div></div>
+        </div>
+        <div class="kasa-durum-summary" id="gelir-beklenti-summary" onclick="toggleGelirBeklenti()">
+          <div class="kd-title"><span class="chev">&#9656;</span> Gelir <em>Beklentileri</em> <span class="kd-hint">(manuel &middot; detaylar için tıklayın)</span></div>
+        </div>
+        <div class="kasa-durum-detail" id="gelir-beklenti-detail">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:var(--sp-2)"><button class="btn" style="width:auto" onclick="gelirAddRow()">+ Satır Ekle</button></div>
+          <div style="overflow-x:auto;max-height:320px;overflow-y:auto"><table class="tur-summary gelir-table" id="gelir-table">
+            <thead><tr><th>Gelir T&uuml;r&uuml;</th><th class="num">Tutar</th><th>Geldi mi?</th><th>Geli&#351; Tarihi</th><th></th></tr></thead>
+            <tbody id="gelir-beklenti-body"></tbody>
+          </table></div>
+          <div class="tur-foot" style="justify-content:flex-end">
+            <div><span class="l">Toplam (gelmemi&#351;)</span><span class="v" id="gelir-toplam-cell" style="color:var(--accent-ink)">₺0</span></div>
+          </div>
+        </div>
+      </div>
+
       <div class="panel">
         <div class="panel-head">
           <div><div class="ttl">İ&#351;lemler</div><div class="sub" id="tbl-sub">&mdash;</div></div>
@@ -401,6 +447,15 @@ function setLive(state, lbl) { const el = $("live-ind"); el.className = "live " 
 const MONTHS = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
 function trDateToIso(s) { if (!s) return null; const m = String(s).match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/); if (!m) return null; return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'); }
 function normDurum(raw) { return /BEKL/i.test(String(raw||'')) ? 'BEKLİYOR' : 'ÖDENDİ'; }
+function parseTutar(raw) {
+  if (typeof raw === 'number') return raw;
+  if (!raw) return 0;
+  let s = String(raw).trim().replace(/[₺TL\s]/gi, '');
+  if (s.includes(',') && s.includes('.')) s = s.replace(/\./g,'').replace(',','.');
+  else if (s.includes(',')) s = s.replace(',','.');
+  const v = parseFloat(s);
+  return isNaN(v) ? 0 : v;
+}
 
 function showToast(msg, type) {
   const c = $("toast-container");
@@ -459,6 +514,12 @@ let pgCurrent = 1, pgTotal = 1;
 const PAGE_SIZE = 15;
 const mselSelected = { tur: new Set(), arac: new Set() };
 
+/* Gelir Beklentileri + Net Nakit (FARK) -- sunucuda kalici (/api/gelir-beklentileri) */
+let gelirBeklentileri = [];
+let gelirBeklentileriLoaded = false;
+let lastBekleyenToplam = 0;
+let gelirBeklentiOpen = false;
+
 // /api/data'daki d.islemler kasa ekraniyla paylasilan alan, 2000 kayitla sinirli.
 // Bu sayfa onun yerine /api/islemler-full'u kullanir (limitsiz) -- kasa'ya HIC dokunulmuyor,
 // sadece bu sayfa ayri, daha genis bir kaynaktan besleniyor.
@@ -491,12 +552,15 @@ function adaptData(d) {
 async function render(d) {
   if (!d || d.hata) { $("err-box").textContent = "Sunucu hatası: " + (d?.hata||"bilinmiyor"); $("err-box").style.display="block"; $("loading").style.display="none"; return; }
   if (d.guncelleme !== lastIslemlerFullGuncelleme) await fetchIslemlerFull();
+  if (!gelirBeklentileriLoaded) { gelirBeklentileriLoaded = true; await loadGelirBeklentileri(); }
   adaptData(d);
   $("loading").style.display = "none"; $("content").style.display = "block"; $("err-box").style.display = "none";
   if (!dateFilterInitialized) { dateFilterInitialized = true; defaultToCurrentMonth(); }
   else { updateDateHint(); }
   updateMselOptions();
   renderKasaDurum(d.bakiyeler || []);
+  refreshKasaMevcuduRow(d.bakiyeler || []);
+  renderGelirBeklentileri();
   applyFilters();
 }
 
@@ -520,6 +584,93 @@ function renderKasaDurum(banks) {
   $("kasa-durum-body").innerHTML = sorted.map(b => `<tr><td>${b.banka}</td><td class="num">${fmtTL(b.bakiye_tl,2)}</td><td class="num">${fmtTL(b.kullanilabilir,2)}</td><td class="num">${fmtTL(b.bloke,2)}</td></tr>`).join("")
     + `<tr style="font-weight:700;background:var(--paper-2)"><td>TOPLAM</td><td class="num">${fmtTL(totalBak,2)}</td><td class="num">${fmtTL(totalKul,2)}</td><td class="num">${fmtTL(totalBlk,2)}</td></tr>`;
 }
+
+/* ---------- Gelir Beklentileri + Net Nakit (FARK) ---------- */
+async function loadGelirBeklentileri() {
+  try {
+    const r = await fetch('/api/gelir-beklentileri', { credentials: 'include' });
+    if (r.ok) gelirBeklentileri = await r.json();
+  } catch (e) { console.error('Gelir beklentileri alınamadı', e); }
+}
+let _gbSaveTimer = null;
+function saveGelirBeklentileri() {
+  clearTimeout(_gbSaveTimer);
+  _gbSaveTimer = setTimeout(() => {
+    fetch('/api/gelir-beklentileri', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: gelirBeklentileri })
+    }).catch(e => console.error('Gelir beklentileri kaydedilemedi', e));
+  }, 500);
+}
+function gelirBeklentiToplam() {
+  let t = 0;
+  for (const row of gelirBeklentileri) { if (row.geldi) continue; t += Number(row.tutar) || 0; }
+  return t;
+}
+// "KASA MEVCUDUMUZ" satirini listenin en ustunde tutar, Kasa Durumu'ndaki
+// TOPLAM Kullanilabilir Bakiye ile otomatik gunceller (duzenlenemez/silinemez).
+function refreshKasaMevcuduRow(banks) {
+  let autoRow = gelirBeklentileri.find(r => r.auto);
+  if (!autoRow) { autoRow = { tur: 'KASA MEVCUDUMUZ', tutar: 0, auto: true }; gelirBeklentileri.unshift(autoRow); }
+  autoRow.tur = 'KASA MEVCUDUMUZ';
+  autoRow.tutar = (banks || []).reduce((s,b) => s + (b.kullanilabilir||0), 0);
+}
+function updateGelirFarkBanner() {
+  const gelirToplam = gelirBeklentiToplam();
+  const fark = gelirToplam - lastBekleyenToplam;
+  $("gfb-gelir").textContent = fmtTL(gelirToplam);
+  $("gfb-odeme").textContent = fmtTL(lastBekleyenToplam);
+  const farkEl = $("gfb-fark");
+  farkEl.textContent = (fark<0?'-':'') + fmtTL(Math.abs(fark));
+  farkEl.classList.toggle('negative', fark < 0);
+  farkEl.classList.toggle('positive', fark >= 0);
+  $("gelir-toplam-cell").textContent = fmtTL(gelirToplam);
+  const mv = $("tur-month"); const p = mv && mv.value ? mv.value.split('-') : null;
+  $("gfb-sub").textContent = "Kasa Mevcudu + gelmemiş gelir beklentileri − " + (p ? MONTHS[+p[1]-1]+' '+p[0] : 'seçili ay') + " bekleyen ödemeleri (Ödeme Türü Bazında Toplamlar'daki aya göre)";
+}
+function renderGelirBeklentileri() {
+  const tbody = $("gelir-beklenti-body");
+  tbody.innerHTML = gelirBeklentileri.map((row, idx) => {
+    if (row.auto) {
+      return `<tr class="gelir-auto-row"><td><b>${row.tur}</b><br><span class="muted" style="font-size:9px;text-transform:uppercase;letter-spacing:.05em">otomatik &middot; Kasa Durumu</span></td>
+        <td class="num"><b>${fmtTL(row.tutar||0)}</b></td><td></td><td></td><td></td></tr>`;
+    }
+    const turVal = String(row.tur||'').replace(/"/g,'&quot;');
+    const tutarVal = row.tutar ? Number(row.tutar).toLocaleString('tr-TR') : '';
+    const geldi = !!row.geldi;
+    return `<tr data-idx="${idx}" class="${geldi?'gelir-geldi-row':''}">
+      <td><input type="text" class="gb-tur" value="${turVal}" placeholder="Gelir türü / proje adı"></td>
+      <td class="num"><input type="text" class="gb-tutar" value="${tutarVal}" placeholder="0"></td>
+      <td style="text-align:center"><input type="checkbox" class="gelir-geldi-check gb-geldi" ${geldi?'checked':''} title="Bu gelir geldi mi?"></td>
+      <td><input type="date" class="gb-tarih date-input" value="${row.gelisTarihi||''}" ${geldi?'':'disabled'}></td>
+      <td><button class="gelir-del-btn gb-del" title="Satırı sil">&#10005;</button></td>
+    </tr>`;
+  }).join("");
+
+  tbody.querySelectorAll('tr[data-idx]').forEach(tr => {
+    const idx = +tr.dataset.idx;
+    const turInput = tr.querySelector('.gb-tur');
+    const tutarInput = tr.querySelector('.gb-tutar');
+    const geldiCheck = tr.querySelector('.gb-geldi');
+    const tarihInput = tr.querySelector('.gb-tarih');
+    const delBtn = tr.querySelector('.gb-del');
+
+    turInput.addEventListener('input', function(){ gelirBeklentileri[idx].tur = this.value; saveGelirBeklentileri(); });
+    tutarInput.addEventListener('input', function(){ gelirBeklentileri[idx].tutar = parseTutar(this.value); saveGelirBeklentileri(); updateGelirFarkBanner(); });
+    tutarInput.addEventListener('blur', function(){ this.value = gelirBeklentileri[idx].tutar ? Number(gelirBeklentileri[idx].tutar).toLocaleString('tr-TR') : ''; });
+    geldiCheck.addEventListener('change', function(){
+      gelirBeklentileri[idx].geldi = this.checked;
+      if (this.checked && !gelirBeklentileri[idx].gelisTarihi) gelirBeklentileri[idx].gelisTarihi = isoDate(new Date());
+      saveGelirBeklentileri(); renderGelirBeklentileri(); updateGelirFarkBanner();
+    });
+    tarihInput.addEventListener('change', function(){ gelirBeklentileri[idx].gelisTarihi = this.value; saveGelirBeklentileri(); });
+    delBtn.addEventListener('click', function(){ gelirBeklentileri.splice(idx,1); saveGelirBeklentileri(); renderGelirBeklentileri(); updateGelirFarkBanner(); });
+  });
+  updateGelirFarkBanner();
+}
+function gelirAddRow() { gelirBeklentileri.push({ tur:'', tutar:0 }); saveGelirBeklentileri(); renderGelirBeklentileri(); }
+function toggleGelirBeklenti() { gelirBeklentiOpen = !gelirBeklentiOpen; $("gelir-fark-panel").classList.toggle('open', gelirBeklentiOpen); }
 
 /* ---------- Filtreler ---------- */
 document.addEventListener("click", () => { $("f-tur-panel").style.display = "none"; $("f-arac-panel").style.display = "none"; });
@@ -818,6 +969,8 @@ function renderTurSummary() {
   $("tur-total").textContent = fmtTL(totalAll);
   $("tur-odenen").textContent = fmtTL(odenenAll);
   $("tur-bekleyen").textContent = fmtTL(bekleyenAll);
+  lastBekleyenToplam = bekleyenAll;
+  updateGelirFarkBanner();
   const p = selectedMonth.split('-');
   const excludedInMonth = turler.filter(t => turSummaryExcluded.has(t));
   let subText = (p.length===2 ? MONTHS[+p[1]-1]+' '+p[0] : selectedMonth) + ' · ' + included.length + ' kayıt';
