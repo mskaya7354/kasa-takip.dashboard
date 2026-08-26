@@ -977,6 +977,30 @@ def _save_gelir_beklentileri(items):
         return False
 
 
+# ---------- Manuel Gider satirlari (Odeme Takip Panosu -- Odeme Turu Bazinda Toplamlar'a elle eklenen giderler) ----------
+# Ay bazinda: { "YYYY-MM": [ {tur, tutar, odendi}, ... ] }. /api/data ve WebSocket yayinina HIC girmez.
+MANUEL_GIDER_PATH = Path(__file__).parent / "manuel_giderler.json"
+_manuel_gider_lock = threading.Lock()
+
+def _load_manuel_giderler():
+    try:
+        if MANUEL_GIDER_PATH.exists():
+            with _manuel_gider_lock:
+                return json.loads(MANUEL_GIDER_PATH.read_text(encoding="utf-8"))
+    except Exception as e:
+        log.error(f"manuel_giderler okunamadi: {e}")
+    return {}
+
+def _save_manuel_giderler(d):
+    try:
+        with _manuel_gider_lock:
+            MANUEL_GIDER_PATH.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+        return True
+    except Exception as e:
+        log.error(f"manuel_giderler yazilamadi: {e}")
+        return False
+
+
 def _wait_for_file(path, tries=5, delay=2):
     """Dosya (ozellikle bir automount'un ilk erisimde tetiklenme gecikmesi
     yuzunden) hemen gorunmeyebilir -- birkac kez kisa bekleyerek dene.
@@ -1246,6 +1270,22 @@ class GelirBeklentiIn(BaseModel):
 @app.post("/api/gelir-beklentileri")
 async def gelir_beklentileri_post(body: GelirBeklentiIn, credentials: HTTPBasicCredentials = Depends(verify)):
     if not _save_gelir_beklentileri(body.items):
+        return JSONResponse({"hata": "kaydedilemedi"}, status_code=500)
+    return JSONResponse({"durum": "ok"})
+
+
+@app.get("/api/manuel-giderler")
+async def manuel_giderler_get(credentials: HTTPBasicCredentials = Depends(verify)):
+    return JSONResponse(_load_manuel_giderler())
+
+
+class ManuelGiderIn(BaseModel):
+    items: Dict[str, List[Dict[str, Any]]]
+
+
+@app.post("/api/manuel-giderler")
+async def manuel_giderler_post(body: ManuelGiderIn, credentials: HTTPBasicCredentials = Depends(verify)):
+    if not _save_manuel_giderler(body.items):
         return JSONResponse({"hata": "kaydedilemedi"}, status_code=500)
     return JSONResponse({"durum": "ok"})
 

@@ -155,6 +155,9 @@
 
   .tsr-excluded{opacity:.4;text-decoration:line-through}
   .tsr-excl-badge{font-size:9px;font-weight:700;color:var(--negative);background:var(--negative-soft);padding:1px 6px;border-radius:8px;margin-left:6px}
+  tr.tsr-manuel-row td{background:var(--accent-soft)}
+  .manuel-badge{font-size:8.5px;font-weight:700;color:var(--accent-ink);background:var(--card);padding:1px 6px;border-radius:8px;text-transform:uppercase;letter-spacing:.2px;white-space:nowrap}
+  .manuel-odendi-label{font-size:10.5px;display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--muted);justify-content:flex-end}
 
   @media(max-width:1000px){ .cal-wrap{grid-template-columns:1fr} }
 
@@ -361,13 +364,14 @@
             <option value="BEKLİYOR">Bekleyen</option>
           </select>
           <button class="btn" id="tur-clear-excl-btn" style="display:none" onclick="turSummaryClearExcluded()">&#8635; Hariç Tutulanları Temizle</button>
+          <button class="btn" style="margin-left:auto" onclick="manuelGiderAddRow()">+ Gider Ekle</button>
         </div>
         <div class="tur-foot" id="tur-foot-top">
           <div><span class="l">Toplam</span><span class="v" id="tur-total">&mdash;</span></div>
           <div><span class="l">&Ouml;denen</span><span class="v paid" id="tur-odenen">&mdash;</span></div>
           <div><span class="l">Bekleyen</span><span class="v wait" id="tur-bekleyen">&mdash;</span></div>
         </div>
-        <div style="overflow-x:auto"><table class="tur-summary" id="tur-table"><thead><tr><th>&Ouml;deme T&uuml;r&uuml;</th><th class="num">Toplam</th><th class="num" id="tur-col2-lbl">Bekleyen</th></tr></thead><tbody id="tur-body"></tbody></table></div>
+        <div style="overflow-x:auto"><table class="tur-summary gelir-table" id="tur-table"><thead><tr><th>&Ouml;deme T&uuml;r&uuml;</th><th class="num">Toplam</th><th class="num" id="tur-col2-lbl">Bekleyen</th></tr></thead><tbody id="tur-body"></tbody></table></div>
       </div>
 
       <div class="panel" id="gelir-fark-panel">
@@ -520,6 +524,10 @@ let gelirBeklentileriLoaded = false;
 let lastBekleyenToplam = 0;
 let gelirBeklentiOpen = false;
 
+/* Manuel Gider satirlari -- aya ozel, sunucuda kalici (/api/manuel-giderler) */
+let manuelGiderler = {};          // { 'YYYY-MM': [ {tur, tutar, odendi}, ... ] }
+let manuelGiderleriLoaded = false;
+
 // /api/data'daki d.islemler kasa ekraniyla paylasilan alan, 2000 kayitla sinirli.
 // Bu sayfa onun yerine /api/islemler-full'u kullanir (limitsiz) -- kasa'ya HIC dokunulmuyor,
 // sadece bu sayfa ayri, daha genis bir kaynaktan besleniyor.
@@ -553,6 +561,7 @@ async function render(d) {
   if (!d || d.hata) { $("err-box").textContent = "Sunucu hatası: " + (d?.hata||"bilinmiyor"); $("err-box").style.display="block"; $("loading").style.display="none"; return; }
   if (d.guncelleme !== lastIslemlerFullGuncelleme) await fetchIslemlerFull();
   if (!gelirBeklentileriLoaded) { gelirBeklentileriLoaded = true; await loadGelirBeklentileri(); }
+  if (!manuelGiderleriLoaded) { manuelGiderleriLoaded = true; await loadManuelGiderler(); }
   adaptData(d);
   $("loading").style.display = "none"; $("content").style.display = "block"; $("err-box").style.display = "none";
   if (!dateFilterInitialized) { dateFilterInitialized = true; defaultToCurrentMonth(); }
@@ -671,6 +680,25 @@ function renderGelirBeklentileri() {
 }
 function gelirAddRow() { gelirBeklentileri.push({ tur:'', tutar:0 }); saveGelirBeklentileri(); renderGelirBeklentileri(); }
 function toggleGelirBeklenti() { gelirBeklentiOpen = !gelirBeklentiOpen; $("gelir-fark-panel").classList.toggle('open', gelirBeklentiOpen); }
+
+/* ---------- Manuel Gider satırları (Ödeme Türü Bazında Toplamlar'a elle eklenen giderler) ---------- */
+async function loadManuelGiderler() {
+  try {
+    const r = await fetch('/api/manuel-giderler', { credentials: 'include' });
+    if (r.ok) manuelGiderler = await r.json();
+  } catch (e) { console.error('Manuel giderler alınamadı', e); }
+}
+let _mgSaveTimer = null;
+function saveManuelGiderler() {
+  clearTimeout(_mgSaveTimer);
+  _mgSaveTimer = setTimeout(() => {
+    fetch('/api/manuel-giderler', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: manuelGiderler })
+    }).catch(e => console.error('Manuel giderler kaydedilemedi', e));
+  }, 500);
+}
 
 /* ---------- Filtreler ---------- */
 document.addEventListener("click", () => { $("f-tur-panel").style.display = "none"; $("f-arac-panel").style.display = "none"; });
@@ -935,10 +963,20 @@ function populateMonthSelector() {
 }
 
 const turSummaryExcluded = new Set();
+function manuelGiderAddRow() {
+  const ayKey = $("tur-month").value;
+  if (!ayKey) return;
+  if (!manuelGiderler[ayKey]) manuelGiderler[ayKey] = [];
+  manuelGiderler[ayKey].push({ tur:'', tutar:0, odendi:false });
+  saveManuelGiderler();
+  renderTurSummary();
+}
 function renderTurSummary() {
   const selectedMonth = $("tur-month").value;
   const filterVal = $("tur-status").value;
   const baseData = filteredData.filter(r => r.t.slice(0,7) === selectedMonth);
+  if (!manuelGiderler[selectedMonth]) manuelGiderler[selectedMonth] = [];
+  const manuelRows = manuelGiderler[selectedMonth];
 
   const totalMap = {}, odenenMap = {}, bekleyenMap = {}, countMap = {};
   baseData.forEach(r => {
@@ -951,29 +989,63 @@ function renderTurSummary() {
   $("tur-col2-lbl").textContent = filterVal==='ÖDENDİ' ? 'Ödenen' : 'Bekleyen';
 
   const turler = Object.keys(totalMap).sort((a,b)=>(totalMap[b]||0)-(totalMap[a]||0));
-  $("tur-body").innerHTML = turler.length===0 ? '<tr><td colspan="3" class="empty-state">Bu ayda kayıt yok</td></tr>'
-    : turler.map(t => {
-        const excl = turSummaryExcluded.has(t);
-        return `<tr class="${excl?'tsr-excluded':''}" data-tur="${t.replace(/"/g,'&quot;')}" title="Çift tıkla: toplamdan çıkar/dahil et" style="cursor:pointer">
-          <td>${t}${excl?'<span class="tsr-excl-badge">hariç</span>':''} <span class="muted" style="font-size:10px">(${countMap[t]})</span></td>
-          <td class="num">${fmtTL(totalMap[t])}</td><td class="num">${fmtTL(secondMap[t]||0)}</td></tr>`;
-      }).join("");
+  const realRowsHtml = turler.map(t => {
+    const excl = turSummaryExcluded.has(t);
+    return `<tr class="${excl?'tsr-excluded':''}" data-tur="${t.replace(/"/g,'&quot;')}" title="Çift tıkla: toplamdan çıkar/dahil et" style="cursor:pointer">
+      <td>${t}${excl?'<span class="tsr-excl-badge">hariç</span>':''} <span class="muted" style="font-size:10px">(${countMap[t]})</span></td>
+      <td class="num">${fmtTL(totalMap[t])}</td><td class="num">${fmtTL(secondMap[t]||0)}</td></tr>`;
+  }).join("");
+  const manuelRowsHtml = manuelRows.map((mr, idx) => {
+    const turVal = String(mr.tur||'').replace(/"/g,'&quot;');
+    const tutarVal = mr.tutar ? Number(mr.tutar).toLocaleString('tr-TR') : '';
+    return `<tr class="tsr-manuel-row" data-midx="${idx}">
+      <td><div style="display:flex;align-items:center;gap:4px">
+        <input type="text" class="mg-tur" value="${turVal}" placeholder="Gider açıklaması">
+        <span class="manuel-badge">manuel</span>
+        <button class="mg-del gelir-del-btn" title="Satırı sil" style="margin-left:auto">&#10005;</button>
+      </div></td>
+      <td class="num"><input type="text" class="mg-tutar" value="${tutarVal}" placeholder="0"></td>
+      <td class="num"><label class="manuel-odendi-label">Ödendi <input type="checkbox" class="mg-odendi gelir-geldi-check" ${mr.odendi?'checked':''}></label></td>
+    </tr>`;
+  }).join("");
+  $("tur-body").innerHTML = (realRowsHtml || manuelRowsHtml) ? realRowsHtml + manuelRowsHtml : '<tr><td colspan="3" class="empty-state">Bu ayda kayıt yok</td></tr>';
+
   $("tur-body").querySelectorAll('tr[data-tur]').forEach(tr => {
     tr.addEventListener('dblclick', () => { const t = tr.dataset.tur; if (turSummaryExcluded.has(t)) turSummaryExcluded.delete(t); else turSummaryExcluded.add(t); renderTurSummary(); });
   });
 
-  const included = baseData.filter(r => !turSummaryExcluded.has(r.tur));
-  const totalAll = included.reduce((s,r)=>s+r.tutar,0);
-  const odenenAll = included.filter(r=>r.durum==='ÖDENDİ').reduce((s,r)=>s+r.tutar,0);
-  const bekleyenAll = included.filter(r=>r.durum!=='ÖDENDİ').reduce((s,r)=>s+r.tutar,0);
-  $("tur-total").textContent = fmtTL(totalAll);
-  $("tur-odenen").textContent = fmtTL(odenenAll);
-  $("tur-bekleyen").textContent = fmtTL(bekleyenAll);
-  lastBekleyenToplam = bekleyenAll;
-  updateGelirFarkBanner();
+  function recomputeTotals() {
+    const inc = baseData.filter(r => !turSummaryExcluded.has(r.tur));
+    let totalAll = inc.reduce((s,r)=>s+r.tutar,0);
+    let odenenAll = inc.filter(r=>r.durum==='ÖDENDİ').reduce((s,r)=>s+r.tutar,0);
+    let bekleyenAll = inc.filter(r=>r.durum!=='ÖDENDİ').reduce((s,r)=>s+r.tutar,0);
+    manuelRows.forEach(mr => { const amt = Number(mr.tutar)||0; totalAll += amt; if (mr.odendi) odenenAll += amt; else bekleyenAll += amt; });
+    $("tur-total").textContent = fmtTL(totalAll);
+    $("tur-odenen").textContent = fmtTL(odenenAll);
+    $("tur-bekleyen").textContent = fmtTL(bekleyenAll);
+    lastBekleyenToplam = bekleyenAll;
+    updateGelirFarkBanner();
+    return inc;
+  }
+  const included = recomputeTotals();
+
+  $("tur-body").querySelectorAll('tr[data-midx]').forEach(tr => {
+    const idx = +tr.dataset.midx;
+    const turInput = tr.querySelector('.mg-tur');
+    const tutarInput = tr.querySelector('.mg-tutar');
+    const odendiCheck = tr.querySelector('.mg-odendi');
+    const delBtn = tr.querySelector('.mg-del');
+    turInput.addEventListener('input', function(){ manuelRows[idx].tur = this.value; saveManuelGiderler(); });
+    tutarInput.addEventListener('input', function(){ manuelRows[idx].tutar = parseTutar(this.value); saveManuelGiderler(); recomputeTotals(); });
+    tutarInput.addEventListener('blur', function(){ this.value = manuelRows[idx].tutar ? Number(manuelRows[idx].tutar).toLocaleString('tr-TR') : ''; });
+    odendiCheck.addEventListener('change', function(){ manuelRows[idx].odendi = this.checked; saveManuelGiderler(); renderTurSummary(); });
+    delBtn.addEventListener('click', function(){ manuelRows.splice(idx,1); saveManuelGiderler(); renderTurSummary(); });
+  });
+
   const p = selectedMonth.split('-');
   const excludedInMonth = turler.filter(t => turSummaryExcluded.has(t));
   let subText = (p.length===2 ? MONTHS[+p[1]-1]+' '+p[0] : selectedMonth) + ' · ' + included.length + ' kayıt';
+  if (manuelRows.length) subText += ` · ${manuelRows.length} manuel satır`;
   if (excludedInMonth.length) subText += ` · ⛔ ${excludedInMonth.length} tür hariç tutuldu`;
   $("tur-sub").textContent = subText;
   $("tur-clear-excl-btn").style.display = turSummaryExcluded.size ? 'inline-flex' : 'none';
