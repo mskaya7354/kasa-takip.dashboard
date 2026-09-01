@@ -751,9 +751,13 @@ td.center{text-align:center;}
 tfoot td{font-weight:800;border-top:2px solid #14130f;border-bottom:none;padding-top:8px;}
 .rfoot{margin-top:22px;font-size:9.5px;color:#a8a49a;text-align:center;border-top:1px solid #e8e4d8;padding-top:10px;}
 .print-btn{position:fixed;top:16px;right:16px;padding:10px 18px;border-radius:8px;border:none;background:#14130f;color:#faf9f6;font-weight:700;font-size:13px;cursor:pointer;}
-@media print{ .print-btn{display:none;} body{padding:8mm;} }
+.close-btn{position:fixed;top:16px;left:16px;padding:10px 18px;border-radius:8px;border:1px solid #e8e4d8;background:#fff;color:#14130f;font-weight:700;font-size:13px;cursor:pointer;}
+.close-fallback{display:none;position:fixed;top:64px;left:16px;right:16px;max-width:420px;background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:12px;line-height:1.4;}
+@media print{ .print-btn,.close-btn,.close-fallback{display:none!important;} body{padding:8mm;} }
 </style></head><body>
+<button class="close-btn no-print" id="closeBtn">&larr; Kapat</button>
 <button class="print-btn no-print" onclick="window.print()">🖨️ Yazdır / PDF Kaydet</button>
+<div class="close-fallback" id="closeFallback">Bu pencere otomatik kapanamadı. Sekmeyi/pencereyi elle kapatarak Ödeme Takip Panosu'na dönebilirsiniz.</div>
 <div class="wrap">
   <div class="rhead"><div><h1>Ödeme Türü Bazında Toplamlar — Gelir/Gider Raporu</h1>
     <div class="sub">Dönem: ${ayLabel} &nbsp;·&nbsp; Sol tablo durumu: ${durumLabel}</div></div>
@@ -778,7 +782,14 @@ tfoot td{font-weight:800;border-top:2px solid #14130f;border-bottom:none;padding
   </div>
 
   <div class="rfoot">Bu rapor Kasa Takip — Ödeme Takip Panosu tarafından otomatik oluşturulmuştur. Gelir kalemleri manuel girilmiştir, bilgi amaçlıdır.</div>
-</div></body></html>`;
+</div>
+<script>
+document.getElementById('closeBtn').addEventListener('click', function() {
+  window.close();
+  setTimeout(function() { document.getElementById('closeFallback').style.display = 'block'; }, 400);
+});
+<\/script>
+</body></html>`;
 }
 function openOdemeGelirRaporu() {
   const win = window.open('', '_blank');
