@@ -378,7 +378,10 @@
       <div class="panel" id="gelir-fark-panel">
         <div class="panel-head">
           <div><div class="ttl">Net Nakit <em>Durumu</em></div><div class="sub" id="gfb-sub">&mdash;</div></div>
-          <button class="btn" onclick="openOdemeGelirRaporu()">&#128196; Rapor Oluştur</button>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select id="netnakit-month" class="ddl" onchange="netnakitMonthChange(this.value)"></select>
+            <button class="btn" onclick="openOdemeGelirRaporu()">&#128196; Rapor Oluştur</button>
+          </div>
         </div>
         <div class="gfb-row">
           <div class="gfb-col gfb-gelir"><div class="gfb-label">Beklenen Gelir Toplamı</div><div class="gfb-val" id="gfb-gelir">₺0</div></div>
@@ -521,7 +524,7 @@ const PAGE_SIZE = 15;
 const mselSelected = { tur: new Set(), arac: new Set() };
 
 /* Gelir Beklentileri + Net Nakit (FARK) -- sunucuda kalici (/api/gelir-beklentileri) */
-let gelirBeklentileri = [];
+let gelirBeklentileri = {};
 let gelirBeklentileriLoaded = false;
 let lastBekleyenToplam = 0;
 let gelirBeklentiOpen = false;
@@ -571,7 +574,6 @@ async function render(d) {
   updateMselOptions();
   renderKasaDurum(d.bakiyeler || []);
   refreshKasaMevcuduRow(d.bakiyeler || []);
-  renderGelirBeklentileri();
   applyFilters();
 }
 
@@ -597,6 +599,12 @@ function renderKasaDurum(banks) {
 }
 
 /* ---------- Gelir Beklentileri + Net Nakit (FARK) ---------- */
+// Ay bazinda saklanir: { 'YYYY-MM': [ {tur, tutar, geldi, gelisTarihi}, ... ], ... }.
+// KASA MEVCUDUMUZ hic persist edilmez -- hep "su an" degeri (kasaMevcuduTutar), hicbir
+// aya ait degildir. Bir ay icin gelmeyen (odenmeyen) kalem, odenene kadar sonraki
+// aylara otomatik devreder -- render zamaninda hesaplanir (getGelirRowsForMonth), veri
+// hicbir yere kopyalanmaz; tek gercek kayit hep kendi kaynak ayinda kalir.
+let kasaMevcuduTutar = 0;
 async function loadGelirBeklentileri() {
   try {
     const r = await fetch('/api/gelir-beklentileri', { credentials: 'include' });
@@ -614,21 +622,24 @@ function saveGelirBeklentileri() {
     }).catch(e => console.error('Gelir beklentileri kaydedilemedi', e));
   }, 500);
 }
-function gelirBeklentiToplam() {
-  let t = 0;
-  for (const row of gelirBeklentileri) { if (row.geldi) continue; t += Number(row.tutar) || 0; }
-  return t;
+function getGelirRowsForMonth(month) {
+  const own = (gelirBeklentileri[month] || []).map((row, idx) => ({ row, month, idx, carried:false }));
+  const carried = [];
+  Object.keys(gelirBeklentileri).filter(k => k < month).sort().forEach(k => {
+    (gelirBeklentileri[k] || []).forEach((row, idx) => { if (!row.geldi) carried.push({ row, month:k, idx, carried:true }); });
+  });
+  return carried.concat(own);
 }
-// "KASA MEVCUDUMUZ" satirini listenin en ustunde tutar, Kasa Durumu'ndaki
-// TOPLAM Kullanilabilir Bakiye ile otomatik gunceller (duzenlenemez/silinemez).
+function gelirBeklentiToplam(month) {
+  return getGelirRowsForMonth(month).reduce((s,e) => s + (e.row.geldi ? 0 : (Number(e.row.tutar)||0)), 0);
+}
+// Kasa Durumu'ndaki TOPLAM Kullanilabilir Bakiye'den canli hesaplanir.
 function refreshKasaMevcuduRow(banks) {
-  let autoRow = gelirBeklentileri.find(r => r.auto);
-  if (!autoRow) { autoRow = { tur: 'KASA MEVCUDUMUZ', tutar: 0, auto: true }; gelirBeklentileri.unshift(autoRow); }
-  autoRow.tur = 'KASA MEVCUDUMUZ';
-  autoRow.tutar = (banks || []).reduce((s,b) => s + (b.kullanilabilir||0), 0);
+  kasaMevcuduTutar = (banks || []).reduce((s,b) => s + (b.kullanilabilir||0), 0);
 }
 function updateGelirFarkBanner() {
-  const gelirToplam = gelirBeklentiToplam();
+  const selectedMonth = $("tur-month")?.value || '';
+  const gelirToplam = kasaMevcuduTutar + gelirBeklentiToplam(selectedMonth);
   const fark = gelirToplam - lastBekleyenToplam;
   $("gfb-gelir").textContent = fmtTL(gelirToplam);
   $("gfb-odeme").textContent = fmtTL(lastBekleyenToplam);
@@ -637,50 +648,98 @@ function updateGelirFarkBanner() {
   farkEl.classList.toggle('negative', fark < 0);
   farkEl.classList.toggle('positive', fark >= 0);
   $("gelir-toplam-cell").textContent = fmtTL(gelirToplam);
-  const mv = $("tur-month"); const p = mv && mv.value ? mv.value.split('-') : null;
+  const p = selectedMonth ? selectedMonth.split('-') : null;
   $("gfb-sub").textContent = "Kasa Mevcudu + gelmemiş gelir beklentileri − " + (p ? MONTHS[+p[1]-1]+' '+p[0] : 'seçili ay') + " bekleyen ödemeleri (Ödeme Türü Bazında Toplamlar'daki aya göre)";
 }
 function renderGelirBeklentileri() {
+  const selectedMonth = $("tur-month")?.value || '';
   const tbody = $("gelir-beklenti-body");
-  tbody.innerHTML = gelirBeklentileri.map((row, idx) => {
-    if (row.auto) {
-      return `<tr class="gelir-auto-row"><td><b>${row.tur}</b><br><span class="muted" style="font-size:9px;text-transform:uppercase;letter-spacing:.05em">otomatik &middot; Kasa Durumu</span></td>
-        <td class="num"><b>${fmtTL(row.tutar||0)}</b></td><td></td><td></td><td></td></tr>`;
+  const entries = getGelirRowsForMonth(selectedMonth);
+
+  let html = `<tr class="gelir-auto-row"><td><b>KASA MEVCUDUMUZ</b><br><span class="muted" style="font-size:9px;text-transform:uppercase;letter-spacing:.05em">otomatik &middot; Kasa Durumu</span></td>
+    <td class="num"><b>${fmtTL(kasaMevcuduTutar)}</b></td><td></td><td></td><td></td></tr>`;
+
+  html += entries.map(e => {
+    const row = e.row;
+    if (row.geldi) {
+      const tarihTxt = row.gelisTarihi ? new Date(row.gelisTarihi+'T00:00:00').toLocaleDateString('tr-TR') : '';
+      return `<tr class="gelir-geldi-row" data-month="${e.month}" data-idx="${e.idx}">
+        <td>${row.tur||'<span class="muted">İsimsiz</span>'}</td>
+        <td class="num">${fmtTL(row.tutar||0)}</td>
+        <td style="text-align:center">&#10003;</td>
+        <td class="mono">${tarihTxt}</td>
+        <td><button class="gelir-del-btn gb-del" title="Satırı sil">&#10005;</button></td>
+      </tr>`;
     }
     const turVal = String(row.tur||'').replace(/"/g,'&quot;');
     const tutarVal = row.tutar ? Number(row.tutar).toLocaleString('tr-TR') : '';
-    const geldi = !!row.geldi;
-    return `<tr data-idx="${idx}" class="${geldi?'gelir-geldi-row':''}">
-      <td><input type="text" class="gb-tur" value="${turVal}" placeholder="Gelir türü / proje adı"></td>
+    const carryBadge = e.carried ? `<br><span class="manuel-badge" title="${e.month} ayından devretti">${MONTHS[+e.month.split('-')[1]-1]}'tan devir</span>` : '';
+    return `<tr data-month="${e.month}" data-idx="${e.idx}">
+      <td><input type="text" class="gb-tur" value="${turVal}" placeholder="Gelir türü / proje adı">${carryBadge}</td>
       <td class="num"><input type="text" class="gb-tutar" value="${tutarVal}" placeholder="0"></td>
-      <td style="text-align:center"><input type="checkbox" class="gelir-geldi-check gb-geldi" ${geldi?'checked':''} title="Bu gelir geldi mi?"></td>
-      <td><input type="date" class="gb-tarih date-input" value="${row.gelisTarihi||''}" ${geldi?'':'disabled'}></td>
+      <td style="text-align:center"><button class="btn gb-ode" style="width:auto;padding:3px 8px;font-size:11px" title="Ödeme kaydet">&#128176; Öde</button></td>
+      <td></td>
       <td><button class="gelir-del-btn gb-del" title="Satırı sil">&#10005;</button></td>
     </tr>`;
   }).join("");
 
-  tbody.querySelectorAll('tr[data-idx]').forEach(tr => {
-    const idx = +tr.dataset.idx;
+  tbody.innerHTML = html;
+
+  tbody.querySelectorAll('tr[data-month]').forEach(tr => {
+    const month = tr.dataset.month, idx = +tr.dataset.idx;
     const turInput = tr.querySelector('.gb-tur');
     const tutarInput = tr.querySelector('.gb-tutar');
-    const geldiCheck = tr.querySelector('.gb-geldi');
-    const tarihInput = tr.querySelector('.gb-tarih');
+    const odeBtn = tr.querySelector('.gb-ode');
     const delBtn = tr.querySelector('.gb-del');
-
-    turInput.addEventListener('input', function(){ gelirBeklentileri[idx].tur = this.value; saveGelirBeklentileri(); });
-    tutarInput.addEventListener('input', function(){ gelirBeklentileri[idx].tutar = parseTutar(this.value); saveGelirBeklentileri(); updateGelirFarkBanner(); });
-    tutarInput.addEventListener('blur', function(){ this.value = gelirBeklentileri[idx].tutar ? Number(gelirBeklentileri[idx].tutar).toLocaleString('tr-TR') : ''; });
-    geldiCheck.addEventListener('change', function(){
-      gelirBeklentileri[idx].geldi = this.checked;
-      if (this.checked && !gelirBeklentileri[idx].gelisTarihi) gelirBeklentileri[idx].gelisTarihi = isoDate(new Date());
-      saveGelirBeklentileri(); renderGelirBeklentileri(); updateGelirFarkBanner();
+    if (turInput) turInput.addEventListener('input', function(){ gelirBeklentileri[month][idx].tur = this.value; saveGelirBeklentileri(); });
+    if (tutarInput) {
+      tutarInput.addEventListener('input', function(){ gelirBeklentileri[month][idx].tutar = parseTutar(this.value); saveGelirBeklentileri(); updateGelirFarkBanner(); });
+      tutarInput.addEventListener('blur', function(){ const v = gelirBeklentileri[month][idx].tutar; this.value = v ? Number(v).toLocaleString('tr-TR') : ''; });
+    }
+    if (odeBtn) odeBtn.addEventListener('click', function(){ gelirRowOde(month, idx); });
+    if (delBtn) delBtn.addEventListener('click', function(){
+      const arr = gelirBeklentileri[month];
+      if (arr) arr.splice(idx, 1);
+      saveGelirBeklentileri(); renderGelirBeklentileri();
     });
-    tarihInput.addEventListener('change', function(){ gelirBeklentileri[idx].gelisTarihi = this.value; saveGelirBeklentileri(); });
-    delBtn.addEventListener('click', function(){ gelirBeklentileri.splice(idx,1); saveGelirBeklentileri(); renderGelirBeklentileri(); updateGelirFarkBanner(); });
   });
+
   updateGelirFarkBanner();
 }
-function gelirAddRow() { gelirBeklentileri.push({ tur:'', tutar:0 }); saveGelirBeklentileri(); renderGelirBeklentileri(); }
+// Tam veya kismi odeme kaydeder. Kismi ise: bu satirin tutari kalan tutara duser
+// (gelmemis olarak kalir, odenene kadar sonraki aylara devretmeye devam eder), odenen
+// kisim icin GORUNTULENEN aya (odemenin gercekten yapildigi ay) yeni, "geldi" isaretli
+// bir satir eklenir. Ornek: 10 TL'lik kalemin 5'i odenince -> "5 (gelmemis, devreder)"
+// + "5 (odendi, bu ay)" iki ayri satira boluniyor.
+function gelirRowOde(month, idx) {
+  const arr = gelirBeklentileri[month];
+  if (!arr || !arr[idx]) return;
+  const row = arr[idx];
+  const mevcut = Number(row.tutar) || 0;
+  const girilen = window.prompt(`"${row.tur || 'Bu kalem'}" için ne kadar ödendi? (TL)\nToplam tutar: ${fmtTL(mevcut)}`, mevcut ? String(mevcut) : '');
+  if (girilen === null) return;
+  const odenen = parseTutar(girilen);
+  if (!odenen || odenen <= 0) { showToast('Geçerli bir tutar girin.', 'error'); return; }
+  const bugun = isoDate(new Date());
+  if (odenen >= mevcut) {
+    row.geldi = true; row.gelisTarihi = bugun;
+  } else {
+    row.tutar = mevcut - odenen;
+    const curMonth = $("tur-month").value;
+    if (!gelirBeklentileri[curMonth]) gelirBeklentileri[curMonth] = [];
+    gelirBeklentileri[curMonth].push({ tur: row.tur, tutar: odenen, geldi: true, gelisTarihi: bugun });
+  }
+  saveGelirBeklentileri();
+  renderGelirBeklentileri();
+}
+function gelirAddRow() {
+  const month = $("tur-month")?.value;
+  if (!month) return;
+  if (!gelirBeklentileri[month]) gelirBeklentileri[month] = [];
+  gelirBeklentileri[month].push({ tur:'', tutar:0 });
+  saveGelirBeklentileri();
+  renderGelirBeklentileri();
+}
 function toggleGelirBeklenti() { gelirBeklentiOpen = !gelirBeklentiOpen; $("gelir-fark-panel").classList.toggle('open', gelirBeklentiOpen); }
 
 /* ---------- Ödeme / Gelir Raporu (yazdırılabilir, ayrı sekme) ---------- */
@@ -704,7 +763,7 @@ function buildOdemeGelirRaporuHTML() {
   const ayLabel = p.length===2 ? MONTHS[+p[1]-1]+' '+p[0] : selectedMonth;
   const durumLabel = filterVal==='all' ? 'Tümü' : (filterVal==='ÖDENDİ' ? 'Ödenen' : 'Bekleyen');
 
-  const gelirToplam = gelirBeklentiToplam();
+  const gelirToplam = kasaMevcuduTutar + gelirBeklentiToplam(selectedMonth);
   const fark = gelirToplam - lastBekleyenToplam;
   const farkColor = fark < 0 ? '#b0563a' : '#4d8d65';
 
@@ -718,12 +777,14 @@ function buildOdemeGelirRaporuHTML() {
     return `<tr style="background:#fff7ed;"><td>${mr.tur||'<i style="color:#c4b5fd;">İsimsiz</i>'} <span style="font-size:8.5px;color:#b45309;background:#fef3c7;padding:1px 6px;border-radius:8px;">MANUEL</span></td><td class="num">${fmtTL(amt)}</td><td class="num">${mr.odendi?'✅ Ödendi':fmtTL(status)}</td></tr>`;
   })).join('') || '<tr><td colspan="3" style="text-align:center;color:#9ca3af;">Kayıt yok</td></tr>';
 
-  const gelirRows = gelirBeklentileri.map(r => {
-    if (r.auto) return `<tr style="background:#eff6ff;"><td><b>${r.tur}</b><br><span style="font-size:9px;color:#2563eb;">OTOMATİK · KASA DURUMU</span></td><td class="num"><b>${fmtTL(r.tutar||0)}</b></td><td class="center">—</td><td class="center">—</td></tr>`;
+  const kasaRowHtml = `<tr style="background:#eff6ff;"><td><b>KASA MEVCUDUMUZ</b><br><span style="font-size:9px;color:#2563eb;">OTOMATİK · KASA DURUMU</span></td><td class="num"><b>${fmtTL(kasaMevcuduTutar)}</b></td><td class="center">—</td><td class="center">—</td></tr>`;
+  const gelirRows = kasaRowHtml + getGelirRowsForMonth(selectedMonth).map(e => {
+    const r = e.row;
     const geldi = !!r.geldi;
     const style = geldi ? ' style="background:#ecfdf5;color:#059669;text-decoration:line-through;"' : '';
-    return `<tr${style}><td>${r.tur||'<i style="color:#c4b5fd;">İsimsiz</i>'}</td><td class="num">${fmtTL(r.tutar||0)}</td><td class="center">${geldi?'✅ Geldi':'⏳ Bekliyor'}</td><td class="center">${r.gelisTarihi ? new Date(r.gelisTarihi+'T00:00:00').toLocaleDateString('tr-TR') : '-'}</td></tr>`;
-  }).join('') || '<tr><td colspan="4" style="text-align:center;color:#9ca3af;">Kayıt yok</td></tr>';
+    const carryTxt = e.carried ? ` <span style="font-size:8.5px;color:#7a7770;">(${e.month}'tan devir)</span>` : '';
+    return `<tr${style}><td>${r.tur||'<i style="color:#c4b5fd;">İsimsiz</i>'}${carryTxt}</td><td class="num">${fmtTL(r.tutar||0)}</td><td class="center">${geldi?'✅ Geldi':'⏳ Bekliyor'}</td><td class="center">${r.gelisTarihi ? new Date(r.gelisTarihi+'T00:00:00').toLocaleDateString('tr-TR') : '-'}</td></tr>`;
+  }).join('');
 
   const now = new Date();
   const genTarih = now.toLocaleDateString('tr-TR') + ' ' + now.toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'});
@@ -1070,14 +1131,29 @@ function fmSelectChange(val) {
 /* ---------- Ödeme Türü Bazında Toplamlar ---------- */
 function populateMonthSelector() {
   const sel = $("tur-month");
+  const nnSel = $("netnakit-month");
   const prevVal = sel.value;
   const now = new Date();
   const currentMonth = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  // Islem ayi + gelir beklentisi/manuel gider bulunan aylar + planlama icin 3 ay ileri
   const monthSet = new Set(filteredData.map(r=>r.t.slice(0,7)));
-  const months = monthSet.size ? [...monthSet].sort() : [currentMonth];
-  sel.innerHTML = months.map(mk => { const p=mk.split('-'); return `<option value="${mk}">${MONTHS[+p[1]-1]} ${p[0]}</option>`; }).join("");
-  if (months.includes(prevVal)) sel.value = prevVal;
-  else sel.value = months.includes(currentMonth) ? currentMonth : months[months.length-1];
+  Object.keys(gelirBeklentileri).forEach(k => monthSet.add(k));
+  Object.keys(manuelGiderler).forEach(k => monthSet.add(k));
+  monthSet.add(currentMonth);
+  for (let i=1;i<=3;i++) { const d = new Date(now.getFullYear(), now.getMonth()+i, 1); monthSet.add(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')); }
+  const months = [...monthSet].sort();
+  const optsHtml = months.map(mk => { const p=mk.split('-'); return `<option value="${mk}">${MONTHS[+p[1]-1]} ${p[0]}</option>`; }).join("");
+  sel.innerHTML = optsHtml;
+  if (nnSel) nnSel.innerHTML = optsHtml;
+  const chosen = months.includes(prevVal) ? prevVal : (months.includes(currentMonth) ? currentMonth : months[months.length-1]);
+  sel.value = chosen;
+  if (nnSel) nnSel.value = chosen;
+}
+// Net Nakit panelindeki ay secici, Odeme Turu Bazinda Toplamlar'in ay seciciyle senkron tutulur --
+// tek bir "secili ay" kavrami, iki farkli yerden erisiliyor.
+function netnakitMonthChange(v) {
+  $("tur-month").value = v;
+  renderTurSummary();
 }
 
 const turSummaryExcluded = new Set();
@@ -1091,10 +1167,13 @@ function manuelGiderAddRow() {
 }
 function renderTurSummary() {
   const selectedMonth = $("tur-month").value;
+  const nnSel = $("netnakit-month");
+  if (nnSel && nnSel.value !== selectedMonth) nnSel.value = selectedMonth;
   const filterVal = $("tur-status").value;
   const baseData = filteredData.filter(r => r.t.slice(0,7) === selectedMonth);
   if (!manuelGiderler[selectedMonth]) manuelGiderler[selectedMonth] = [];
   const manuelRows = manuelGiderler[selectedMonth];
+  renderGelirBeklentileri();
 
   const totalMap = {}, odenenMap = {}, bekleyenMap = {}, countMap = {};
   baseData.forEach(r => {

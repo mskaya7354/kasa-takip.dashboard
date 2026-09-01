@@ -1529,7 +1529,9 @@ window.setTxDateRange = function(days) {
   const to = new Date();
   const from = new Date();
   from.setDate(from.getDate() - (days - 1));
-  const fmt = d => d.toISOString().slice(0, 10);
+  // YEREL tarih -- toISOString() UTC'ye cevirir, TR (UTC+3) saatinde gece yarisindan
+  // sonraki ilk 3 saatte bir onceki gunu dondurur (bkz. /odeme-takip Faz 1, ayni hata sinifi).
+  const fmt = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   $("tx-date-from").value = fmt(from);
   $("tx-date-to").value = fmt(to);
   txPage = 0;

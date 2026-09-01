@@ -947,16 +947,10 @@ def _save_kredi_notlar(d):
 
 # ---------- Gelir Beklentileri (Odeme Takip Panosu -- Net Nakit/FARK paneli) ----------
 # /api/data ve WebSocket yayinina HIC girmez -- ayri, izole bir dosya + uc nokta.
+# Ay bazinda: { "YYYY-MM": [ {tur, tutar, geldi, gelisTarihi}, ... ], ... } -- manuel_giderler
+# ile ayni sekil. 2026-09-01'de flat listeden bu sekle bir kerelik migrate edildi (bkz. git log).
 GELIR_BEKLENTI_PATH = Path(__file__).parent / "gelir_beklentileri.json"
 _gelir_beklenti_lock = threading.Lock()
-
-GELIR_BEKLENTI_SEED = [
-    {"tur": t, "tutar": 0} for t in [
-        "HANGAR FAZ 2", "HANGAR LEVHA", "TRT CAMİİ", "PİYALEPAŞA", "MONA 94",
-        "FİKİRTEPE", "NLK", "YASEMİN", "BANKA KREDİ", "BANKA KREDİ", "BANKA KREDİ",
-        "BANKA KREDİ", "AVANS", "AVANS", "AVANS", "TEMİNAT ÇÖZÜMÜ", "TEMİNAT ÇÖZÜMÜ",
-    ]
-]
 
 def _load_gelir_beklentileri():
     try:
@@ -965,7 +959,7 @@ def _load_gelir_beklentileri():
                 return json.loads(GELIR_BEKLENTI_PATH.read_text(encoding="utf-8"))
     except Exception as e:
         log.error(f"gelir_beklentileri okunamadi: {e}")
-    return [dict(r) for r in GELIR_BEKLENTI_SEED]
+    return {}
 
 def _save_gelir_beklentileri(items):
     try:
@@ -1264,7 +1258,7 @@ async def gelir_beklentileri_get(credentials: HTTPBasicCredentials = Depends(ver
 
 
 class GelirBeklentiIn(BaseModel):
-    items: List[Dict[str, Any]]
+    items: Dict[str, List[Dict[str, Any]]]
 
 
 @app.post("/api/gelir-beklentileri")
