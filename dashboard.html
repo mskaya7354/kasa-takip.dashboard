@@ -1392,6 +1392,7 @@ window.renderChecks = function() {
   });
 
   rows = rows.slice().sort((a,b) => {
+    if (!!a.kapali !== !!b.kapali) return a.kapali ? 1 : -1;
     if(!a.vade) return 1; if(!b.vade) return -1;
     return parseTr(a.vade) - parseTr(b.vade);
   });
@@ -1563,13 +1564,14 @@ window.renderTx = function() {
   const yearSel = $("tx-year");
   if (yearSel && yearSel.options.length === 0) {
     const cy = new Date().getFullYear();
-    yearSel.innerHTML = '<option value="all" selected>T&uuml;m y&#305;llar</option>';
+    yearSel.innerHTML = '<option value="all">T&uuml;m y&#305;llar</option>';
     for (let y = cy - 5; y <= cy + 5; y++) {
       const o = document.createElement("option");
       o.value = y; o.textContent = y;
       yearSel.appendChild(o);
     }
-    yearSel.value = "all";
+    // Varsayilan: cari yil (dinamik -- her acilista "bugun"e gore hesaplanir)
+    yearSel.value = String(cy);
   }
   // Ay dropdown'unu doldur (12 ay)
   const monthSel = $("tx-month");
@@ -1581,6 +1583,8 @@ window.renderTx = function() {
       o.value = i; o.textContent = a;
       monthSel.appendChild(o);
     });
+    // Varsayilan: cari ay (dinamik)
+    monthSel.value = String(new Date().getMonth());
   }
 
   // Ödeme türü çoklu seçim listesini doldur (ÖDEME TÜRÜ kolonu)
@@ -1637,6 +1641,12 @@ window.renderTx = function() {
     if (yr !== "all" && dt.getFullYear() !== +yr) return false;
     if (mo !== "all" && dt.getMonth() !== +mo) return false;
     return true;
+  });
+
+  rows = rows.slice().sort((a,b) => {
+    const da = parseTr(a.tarih_tam || a.tarih), db = parseTr(b.tarih_tam || b.tarih);
+    if (!da) return 1; if (!db) return -1;
+    return db - da;
   });
 
   // Rapor: ödeme türü bazlı kırılım (collapsible)
