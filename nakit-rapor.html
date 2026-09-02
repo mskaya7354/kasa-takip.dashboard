@@ -85,6 +85,17 @@
   .loading,.err-box{padding:40px;text-align:center;color:var(--muted)}
   .err-box{color:var(--negative);display:none}
 
+  /* Anomali + Tekrarlayan Kalemler (Faz B) */
+  .anom-flag{font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:8px;white-space:nowrap}
+  .anom-flag.anomali{background:var(--negative-soft);color:var(--negative)}
+  .anom-flag.normal{background:var(--positive-soft);color:var(--positive)}
+  .anom-flag.yetersiz{background:var(--paper-2);color:var(--muted)}
+  .anom-sub-tabs{display:flex;gap:6px;margin-bottom:var(--sp-4)}
+  .anom-sub-tab{padding:6px 12px;border-radius:8px;border:1px solid var(--rule);font-size:12px;font-weight:500;color:var(--ink-2);cursor:pointer}
+  .anom-sub-tab.active{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .anom-section{display:none}
+  .anom-section.active{display:block}
+
   @media print {
     .sidebar,.no-print{display:none!important}
     .app{display:block}
@@ -145,6 +156,31 @@
         </div>
         <div class="np-chart-wrap"><canvas id="np-chart"></canvas></div>
         <div class="np-note" id="np-note"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div><div class="ttl">Anomali <em>&amp; Tekrarlayan Kalemler</em></div><div class="sub" id="anom-sub">&mdash;</div></div>
+          <select id="anom-month" class="ddl" onchange="anomMonthChange(this.value)"></select>
+        </div>
+        <div class="anom-sub-tabs">
+          <div class="anom-sub-tab active" data-tab="anomali" onclick="anomTabSwitch('anomali')">Ay Kar&#351;&#305;la&#351;t&#305;rma</div>
+          <div class="anom-sub-tab" data-tab="tekrar" onclick="anomTabSwitch('tekrar')">Tekrarlayan Kalemler</div>
+        </div>
+        <div class="anom-section active" id="anom-sec-anomali">
+          <div style="overflow-x:auto"><table class="tbl" id="anom-table">
+            <thead><tr><th>&Ouml;deme T&uuml;r&uuml;</th><th class="num">&Ouml;nceki Ort.</th><th class="num">Se&ccedil;ili Ay</th><th class="num">Sapma</th><th>Durum</th></tr></thead>
+            <tbody id="anom-body"></tbody>
+          </table></div>
+          <div class="np-note" id="anom-note"></div>
+        </div>
+        <div class="anom-section" id="anom-sec-tekrar">
+          <div class="np-note" style="margin-top:0;margin-bottom:var(--sp-3)">Her ay d&ouml;nen kalemlerin ge&ccedil;mi&#351; 5 ayl&#305;k ortalama/medyan&#305; &mdash; <b>bu bir model tahmini de&#287;il</b>, d&uuml;z istatistik. Planlama i&ccedil;in kaba bir referans olarak kullan&#305;labilir.</div>
+          <div style="overflow-x:auto"><table class="tbl" id="tekrar-table">
+            <thead><tr><th>&Ouml;deme T&uuml;r&uuml;</th><th class="num">Ortalama</th><th class="num">Medyan</th><th class="num">G&ouml;zlem</th></tr></thead>
+            <tbody id="tekrar-body"></tbody>
+          </table></div>
+        </div>
       </div>
 
       <div class="panel">
@@ -295,18 +331,139 @@ function renderNakitRaporu(){
   });
 }
 
+/* ============================================================
+   Anomali + Tekrarlayan Kalemler (Faz B) -- ML DEGIL, betimsel istatistik.
+   Kaynak: /api/islemler-full (odenmis, gecmis kayitlar). Yalniz TAMAMLANMIS
+   aylar analiz edilir -- cari ay (henuz devam eden) secilemez, yarim ayi
+   tam ayla kiyaslamak yaniltici olur.
+   ============================================================ */
+let FULL_ISLEMLER = [];
+let anomMonthlyPivot = {};   // { tur: { 'YYYY-MM': tutar } }
+let anomAvailableMonths = []; // tamamlanmis aylar, kronolojik
+let anomSelectedMonth = null;
+
+function anomBuildPivot(){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const curMonthKey = today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0');
+  const byTurByMonth = {};
+  const monthSet = new Set();
+
+  FULL_ISLEMLER.forEach(r => {
+    if (r.yon !== 'out') return;                 // sadece cikis -- virman ve giris haric
+    if (String(r.durum).toUpperCase() !== 'ÖDENDİ') return;
+    const iso = trDateToIso(r.tarih_tam);
+    if (!iso) return;
+    const mk = iso.slice(0,7);
+    if (mk < '2026-04') return;                  // guvenilir pencere: sistem Nisan'dan itibaren yogun kullanimda (bkz. Faz 0)
+    if (mk >= curMonthKey) return;                // cari/gelecek ay -- tamamlanmamis, disarida
+    const tur = r.odeme_turu || '(belirsiz)';
+    if (!byTurByMonth[tur]) byTurByMonth[tur] = {};
+    byTurByMonth[tur][mk] = (byTurByMonth[tur][mk] || 0) + Math.abs(r.tutar_tl || 0);
+    monthSet.add(mk);
+  });
+
+  anomMonthlyPivot = byTurByMonth;
+  anomAvailableMonths = [...monthSet].sort();
+}
+
+function anomPopulateMonthSelector(){
+  const sel = $("anom-month");
+  sel.innerHTML = anomAvailableMonths.map(mk => {
+    const p = mk.split('-'); return `<option value="${mk}">${MONTHS_TR[+p[1]-1]} ${p[0]}</option>`;
+  }).join('');
+  anomSelectedMonth = anomAvailableMonths[anomAvailableMonths.length - 1] || null;
+  if (anomSelectedMonth) sel.value = anomSelectedMonth;
+}
+const MONTHS_TR = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+
+function anomMonthChange(v){ anomSelectedMonth = v; renderAnomTable(); }
+
+let anomActiveTab = 'anomali';
+function anomTabSwitch(tab){
+  anomActiveTab = tab;
+  document.querySelectorAll('.anom-sub-tab').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
+  document.querySelectorAll('.anom-section').forEach(el => el.classList.remove('active'));
+  $('anom-sec-' + tab).classList.add('active');
+}
+
+function renderAnomTable(){
+  if (!anomSelectedMonth) {
+    $("anom-body").innerHTML = '<tr><td colspan="5" class="empty-state">Yeterli tamamlanmış ay yok</td></tr>';
+    $("anom-sub").textContent = '—';
+    return;
+  }
+  const idx = anomAvailableMonths.indexOf(anomSelectedMonth);
+  const gecmisAylar = anomAvailableMonths.slice(0, idx); // secili aydan ONCEKI tum guvenilir aylar
+
+  const rows = [];
+  Object.keys(anomMonthlyPivot).forEach(tur => {
+    const seri = anomMonthlyPivot[tur];
+    const seciliVal = seri[anomSelectedMonth] || 0;
+    const gecmisVals = gecmisAylar.map(mk => seri[mk] || 0).filter(v => v > 0);
+    if (gecmisVals.length < 2) return;   // yetersiz karsilastirma noktasi -- listeye alma
+    const ort = gecmisVals.reduce((a,b)=>a+b,0) / gecmisVals.length;
+    if (ort === 0) return;
+    const std = Math.sqrt(gecmisVals.reduce((a,b)=>a+(b-ort)**2,0) / gecmisVals.length);
+    const sapmaPct = (seciliVal - ort) / ort * 100;
+    const z = std > 0 ? (seciliVal - ort) / std : null;
+    // Anomali esigi: hem oransal (>=30%) hem istatistiksel (|z|>=1.5) sapma birlikte --
+    // sadece biri yeterli degil (kucuk TL'de buyuk % olabilir, yuksek varyansli kalemde
+    // buyuk z olabilir; ikisi bir arada olunca sinyal daha guvenilir).
+    const isAnomali = Math.abs(sapmaPct) >= 30 && (z === null ? Math.abs(sapmaPct) >= 60 : Math.abs(z) >= 1.5);
+    rows.push({ tur, ort, seciliVal, sapmaPct, z, isAnomali, gecmisN: gecmisVals.length });
+  });
+
+  rows.sort((a,b) => Math.abs(b.sapmaPct) - Math.abs(a.sapmaPct));
+  const p = anomSelectedMonth.split('-');
+  $("anom-sub").textContent = `${MONTHS_TR[+p[1]-1]} ${p[0]} · önceki ${gecmisAylar.length} ayla kıyaslandı · ${rows.filter(r=>r.isAnomali).length} anomali işaretlendi`;
+
+  $("anom-body").innerHTML = rows.map(r => {
+    const flag = r.isAnomali
+      ? '<span class="anom-flag anomali">⚠ Anomali</span>'
+      : '<span class="anom-flag normal">Normal</span>';
+    const zTxt = r.z === null ? '<span class="muted" style="font-size:10px">(varyans yok)</span>' : `z=${r.z.toFixed(2)}`;
+    return `<tr><td>${r.tur}</td><td class="num">${fmtTL(r.ort)}</td><td class="num">${fmtTL(r.seciliVal)}</td>`
+      + `<td class="num ${r.sapmaPct<0?'neg':(r.sapmaPct>0?'':'')}">${r.sapmaPct>=0?'+':''}${r.sapmaPct.toFixed(0)}% <span class="muted" style="font-size:10px">${zTxt}</span></td>`
+      + `<td>${flag}</td></tr>`;
+  }).join('') || '<tr><td colspan="5" class="empty-state">Bu ay için karşılaştırılabilir kalem yok</td></tr>';
+
+  $("anom-note").innerHTML = 'Anomali eşiği: önceki ortalamadan <b>±%30 ve üzeri</b> sapma, aynı zamanda <b>istatistiksel olarak da belirgin</b> (|z|≥1.5) olmalı. '
+    + 'Yalnız en az 4 aydan 2\'sinde görülmüş kalemler listelenir — düzensiz görülen kalemler (ör. yılda birkaç kez ödenen) burada güvenilir şekilde değerlendirilemez. '
+    + '"DİĞER GİDERLER" gibi geniş/karma kategoriler doğası gereği değişken olabilir, anomali etiketi bu tür kalemlerde daha az anlamlıdır.';
+}
+
+function renderTekrarTable(){
+  const rows = [];
+  Object.keys(anomMonthlyPivot).forEach(tur => {
+    const seri = anomMonthlyPivot[tur];
+    const vals = anomAvailableMonths.map(mk => seri[mk] || 0).filter(v => v > 0);
+    const oranGorulme = vals.length / anomAvailableMonths.length;
+    if (vals.length < 4 || oranGorulme < 0.7) return;   // en az 4 gozlem VE aylarin >=%70'inde gorulmus -- "duzenli" tanimi
+    const sorted = [...vals].sort((a,b)=>a-b);
+    const medyan = sorted.length % 2 ? sorted[(sorted.length-1)/2] : (sorted[sorted.length/2-1]+sorted[sorted.length/2])/2;
+    const ort = vals.reduce((a,b)=>a+b,0) / vals.length;
+    rows.push({ tur, ort, medyan, n: vals.length });
+  });
+  rows.sort((a,b) => b.ort - a.ort);
+  $("tekrar-body").innerHTML = rows.map(r =>
+    `<tr><td>${r.tur}</td><td class="num">${fmtTL(r.ort)}</td><td class="num">${fmtTL(r.medyan)}</td><td class="num">${r.n} / ${anomAvailableMonths.length} ay</td></tr>`
+  ).join('') || '<tr><td colspan="4" class="empty-state">Düzenli görülen kalem yok</td></tr>';
+}
+
 async function boot(){
   try{
-    const [dRes, gRes, mRes] = await Promise.all([
+    const [dRes, gRes, mRes, fRes] = await Promise.all([
       fetch('/api/data', { credentials:'include' }),
       fetch('/api/gelir-beklentileri', { credentials:'include' }),
       fetch('/api/manuel-giderler', { credentials:'include' }),
+      fetch('/api/islemler-full', { credentials:'include' }),
     ]);
     if (!dRes.ok) throw new Error('HTTP ' + dRes.status);
     const d = await dRes.json();
     if (d.hata) throw new Error(d.hata);
     GELIR = gRes.ok ? await gRes.json() : {};
     MANUEL = mRes.ok ? await mRes.json() : {};
+    FULL_ISLEMLER = fRes.ok ? (await fRes.json()).islemler || [] : [];
 
     KASA_MEVCUT = (d.bakiyeler || []).reduce((s,b) => s + (b.kullanilabilir || 0), 0);
     // server.py her 'bekleyen' kaydina yon ekliyor ("in"/"out" -- bkz. server.py:366).
@@ -320,11 +477,16 @@ async function boot(){
       console.warn('Bekleyen giris/cikis capraz kontrolu tutmadi', {hesGiris,kpiGiris,hesCikis,kpiCikis});
     }
 
+    anomBuildPivot();
+    anomPopulateMonthSelector();
+
     $("gen-time").textContent = new Date().toLocaleString('tr-TR');
     $("src-time").textContent = d.guncelleme || '—';
     $("loading").style.display = "none";
     $("content").style.display = "block";
     renderNakitRaporu();
+    renderAnomTable();
+    renderTekrarTable();
   }catch(e){
     $("loading").style.display = "none";
     $("err-box").textContent = "Veri alınamadı: " + e.message;
