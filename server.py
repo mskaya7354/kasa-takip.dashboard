@@ -1322,6 +1322,14 @@ async def odeme_takip_page(credentials: HTTPBasicCredentials = Depends(verify)):
     return p.read_text(encoding="utf-8")
 
 
+@app.get("/nakit-rapor", response_class=HTMLResponse)
+async def nakit_rapor_page(credentials: HTTPBasicCredentials = Depends(verify)):
+    p = BASE / "nakit-rapor.html"
+    if not p.exists():
+        return HTMLResponse("<h1>nakit-rapor.html bulunamadi</h1>", 404)
+    return p.read_text(encoding="utf-8")
+
+
 def main():
     import sys
     # pythonw.exe ile sys.stdout/stderr None olur, uvicorn crash yapar -- log dosyasina yonlendir

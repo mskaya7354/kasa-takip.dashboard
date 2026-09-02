@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kasa Takip &mdash; Nakit Raporu</title>
+<meta name="theme-color" content="#14130f" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preload" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
+<noscript><link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" /></noscript>
+<script src="/chart.min.js" defer></script>
+<style>
+  :root {
+    --paper:#faf9f6; --paper-2:#f3f1ea; --card:#ffffff;
+    --ink:#14130f; --ink-2:#3a3832; --muted:#7a7770; --muted-2:#a8a49a;
+    --rule:#e8e4d8; --rule-strong:#d6d1c0;
+    --accent:oklch(0.62 0.12 75); --accent-soft:oklch(0.94 0.04 75); --accent-ink:oklch(0.38 0.09 75);
+    --positive:oklch(0.58 0.1 155); --positive-soft:oklch(0.95 0.04 155);
+    --negative:oklch(0.55 0.14 25); --negative-soft:oklch(0.95 0.04 25);
+    --serif:"Instrument Serif","Times New Roman",serif;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,monospace;
+    --r-sm:6px; --r-md:10px; --r-lg:14px;
+    --shadow-sm:0 1px 0 rgba(20,19,15,.04),0 1px 2px rgba(20,19,15,.03);
+    --p-pad:22px 24px; --p-head-mb:18px;
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  table{border-collapse:collapse;width:100%}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .muted{color:var(--muted)}
+
+  .app{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+  .sidebar{background:var(--paper);border-right:1px solid var(--rule);padding:22px 18px;display:flex;flex-direction:column;gap:28px;position:sticky;top:0;height:100vh}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand-mark{width:28px;height:28px;border-radius:7px;background:var(--ink);color:var(--paper);display:grid;place-items:center;font-family:var(--serif);font-size:17px;font-style:italic}
+  .brand-meta h1{font-size:14px;font-weight:600;letter-spacing:-.01em}
+  .brand-meta .sub{font-size:11px;color:var(--muted);font-family:var(--mono)}
+  .back-link{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;color:var(--ink-2);text-decoration:none;font-size:13px;font-weight:500;border:1px solid var(--rule)}
+  .back-link:hover{border-color:var(--rule-strong);background:var(--paper-2)}
+  .side-foot{margin-top:auto;font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:4px;padding:0 10px}
+
+  main{padding:28px 36px 80px;max-width:1080px}
+  .topbar{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid var(--rule);padding-bottom:20px;margin-bottom:28px;gap:16px;flex-wrap:wrap}
+  .topbar .kicker{font-family:var(--mono);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.14em}
+  .topbar h2{font-family:var(--serif);font-size:38px;line-height:1;margin-top:6px;letter-spacing:-.02em}
+  .topbar h2 em{font-style:italic;color:var(--accent-ink)}
+  .btn{padding:7px 14px;border-radius:8px;border:1px solid var(--rule);background:var(--card);font-size:12.5px;font-weight:500;color:var(--ink-2)}
+  .btn:hover{border-color:var(--rule-strong)}
+  .ddl{padding:6px 10px;border-radius:8px;border:1px solid var(--rule);background:var(--card);font-size:12.5px;font-weight:500;color:var(--ink-2);font-family:var(--sans);cursor:pointer;outline:none}
+  .ddl:hover{border-color:var(--rule-strong)}
+
+  .panel{background:var(--card);border:1px solid var(--rule);border-radius:var(--r-lg);padding:var(--p-pad);box-shadow:var(--shadow-sm);margin-bottom:var(--sp-5)}
+  .panel-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:var(--p-head-mb);gap:var(--sp-3);flex-wrap:wrap}
+  .panel-head .ttl{font-family:var(--serif);font-size:22px;letter-spacing:-.01em;line-height:1.15}
+  .panel-head .ttl em{font-style:italic;color:var(--accent-ink)}
+  .panel-head .sub{font-size:11.5px;color:var(--muted);margin-top:4px}
+
+  .np-row{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-3);margin-bottom:var(--sp-4)}
+  .np-col{border:1px solid var(--rule);border-radius:var(--r-md);padding:var(--sp-3) var(--sp-4);background:var(--paper-2)}
+  .np-label{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px}
+  .np-val{font-family:var(--serif);font-size:24px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .np-val.negative{color:var(--negative)} .np-val.positive{color:var(--positive)}
+  .np-col.fark{background:var(--accent-soft)}
+  .np-chart-wrap{position:relative;height:280px;margin-bottom:var(--sp-3)}
+  .np-legend{display:flex;gap:var(--sp-4);flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-bottom:var(--sp-2)}
+  .np-legend span{display:inline-flex;align-items:center;gap:6px}
+  .np-legend i{display:inline-block;width:20px;border-top:2px solid var(--ink)}
+  .np-legend i.dash{border-top-style:dashed;border-color:var(--positive)}
+  .np-note{font-size:12px;color:var(--muted);line-height:1.6;border-left:2px solid var(--rule);padding-left:var(--sp-3);margin-top:var(--sp-4)}
+
+  .tbl{font-size:12px}
+  .tbl th{text-align:left;padding:7px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--rule)}
+  .tbl td{padding:6px 8px;border-bottom:1px solid var(--paper-2)}
+  .tbl td.num{text-align:right;font-family:var(--mono)}
+  .tbl td.neg{color:var(--negative);font-weight:600}
+  .tbl td.pos{color:var(--positive)}
+  .empty-state{text-align:center;color:var(--muted-2);padding:24px;font-size:12.5px}
+  .gecikmis-tag{font-size:10px;color:var(--negative)}
+
+  .loading,.err-box{padding:40px;text-align:center;color:var(--muted)}
+  .err-box{color:var(--negative);display:none}
+
+  @media print {
+    .sidebar,.no-print{display:none!important}
+    .app{display:block}
+    main{padding:0;max-width:100%}
+  }
+  @media(max-width:900px){
+    .app{grid-template-columns:1fr}
+    .sidebar{position:relative;height:auto;flex-direction:row;align-items:center;flex-wrap:wrap}
+    .side-foot{display:none}
+    main{padding:var(--sp-4)}
+    .np-row{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar no-print">
+    <div class="brand">
+      <div class="brand-mark">K</div>
+      <div class="brand-meta"><h1>Kasa Takip</h1><div class="sub">Nakit Raporu</div></div>
+    </div>
+    <a class="back-link" href="/">&larr; Kasa'ya D&ouml;n</a>
+    <a class="back-link" href="/odeme-takip">&larr; &Ouml;deme Takip Panosu</a>
+  </aside>
+  <main>
+    <div id="loading" class="loading">Y&uuml;kleniyor&hellip;</div>
+    <div id="err-box" class="err-box"></div>
+    <div id="content" style="display:none">
+
+      <div class="topbar">
+        <div>
+          <div class="kicker">Kesin taahh&uuml;tlere dayal&#305; &middot; tahmin de&#287;il</div>
+          <h2>Nakit <em>Raporu</em></h2>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="np-horizon" class="ddl" onchange="npHorizonChange(this.value)">
+            <option value="30">30 g&uuml;n</option>
+            <option value="90" selected>90 g&uuml;n</option>
+            <option value="180">180 g&uuml;n</option>
+            <option value="365">1 y&#305;l</option>
+          </select>
+          <button class="btn no-print" onclick="window.print()">&#128424;&#65039; Yazd&#305;r / PDF</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div><div class="ttl">Pozisyon <em>&Ouml;zeti</em></div><div class="sub" id="np-sub">&mdash;</div></div>
+        </div>
+        <div class="np-row">
+          <div class="np-col"><div class="np-label">Bug&uuml;nk&uuml; Kullan&#305;labilir</div><div class="np-val" id="np-start">&#8378;0</div></div>
+          <div class="np-col"><div class="np-label">D&ouml;nem Sonu <span style="text-transform:none">(kesin)</span></div><div class="np-val" id="np-end">&#8378;0</div></div>
+          <div class="np-col fark"><div class="np-label">En Dar G&uuml;n</div><div class="np-val" id="np-min">&#8378;0</div><div class="np-label" id="np-min-date" style="margin:4px 0 0">&mdash;</div></div>
+        </div>
+        <div class="np-legend">
+          <span><i></i> Kesin taahh&uuml;tler (gelir yok say&#305;l&#305;rsa)</span>
+          <span><i class="dash"></i> Beklenen gelirler dahil</span>
+        </div>
+        <div class="np-chart-wrap"><canvas id="np-chart"></canvas></div>
+        <div class="np-note" id="np-note"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div><div class="ttl">Hareket <em>Detay&#305;</em></div><div class="sub" id="np-tbl-sub">&mdash;</div></div>
+        </div>
+        <div style="overflow-x:auto;max-height:520px;overflow-y:auto">
+          <table class="tbl" id="np-table">
+            <thead><tr><th>Tarih</th><th>Kalem</th><th class="num">Tutar</th><th class="num">Kalan Pozisyon</th></tr></thead>
+            <tbody id="np-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="side-foot no-print" style="margin-top:8px">Olu&#351;turulma: <span id="gen-time" class="mono"></span> &middot; Kaynak g&uuml;ncelleme: <span id="src-time" class="mono"></span></div>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ============================================================
+   Nakit Raporu -- BAGIMSIZ sayfa, kendi verisini kendi ceker.
+   Tahmin/ML DEGIL -- aritmetik: bugunku kullanilabilir bakiye
+   - bilinen cikislar + bilinen girisler, gun gun.
+   Kasa/Odeme-Takip/Kredi sayfalarina HIC dokunulmaz; bu sayfa
+   /api/data, /api/gelir-beklentileri, /api/manuel-giderler
+   uc noktalarini SALT-OKUNUR tuketir.
+   ============================================================ */
+const $ = id => document.getElementById(id);
+const fmtTL = (v,d=0) => new Intl.NumberFormat("tr-TR",{minimumFractionDigits:d,maximumFractionDigits:d}).format(v||0)+" ₺";
+function trDateToIso(s) { if (!s) return null; const m = String(s).match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/); if (!m) return null; return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'); }
+function npIso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function npTr(iso){ return iso ? iso.split('-').reverse().join('.') : '—'; }
+function npMonthEndIso(ayKey){ const p = String(ayKey).split('-'); return npIso(new Date(+p[0], +p[1], 0)); }
+
+let npHorizon = 90, npChart = null;
+let BEKLEYEN = [], MANUEL = {}, GELIR = {}, KASA_MEVCUT = 0;
+
+function npHorizonChange(v){ npHorizon = +v || 90; renderNakitRaporu(); }
+
+function npCollectEvents(){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayIso = npIso(today);
+  const end = new Date(today); end.setDate(end.getDate() + npHorizon);
+  const endIso = npIso(end);
+  const kesin = [], beklenen = [];
+
+  // 1) Excel kaynakli bekleyen taahhutler (d.bekleyen; _delta boot()'ta r.yon'dan kuruldu)
+  BEKLEYEN.forEach(r => {
+    const t = trDateToIso(r.vade || r.tarih);
+    if (!t) return;
+    if (t > endIso) return;
+    const gecikmis = t < todayIso;
+    kesin.push({ t: gecikmis ? todayIso : t, delta: r._delta, label: (r.cari || r.odeme_turu || '(belirsiz)'), gecikmis });
+  });
+
+  // 2) Manuel giderler (odenmemis)
+  Object.entries(MANUEL || {}).forEach(([ayKey, rows]) => {
+    (rows || []).forEach(g => {
+      if (g.odendi) return;
+      const tutar = +g.tutar || 0; if (!tutar) return;
+      let t = npMonthEndIso(ayKey); if (t < todayIso) t = todayIso;
+      if (t > endIso) return;
+      kesin.push({ t, delta: -tutar, label: (g.tur || 'Manuel gider') + ' · manuel' });
+    });
+  });
+
+  // 3) Gelir beklentileri (gelmemis) -- yalniz beklenti katmani
+  Object.entries(GELIR || {}).forEach(([ayKey, rows]) => {
+    (rows || []).forEach(g => {
+      if (g.geldi) return;
+      const tutar = +g.tutar || 0; if (!tutar) return;
+      let t = npMonthEndIso(ayKey); if (t < todayIso) t = todayIso;
+      if (t > endIso) return;
+      beklenen.push({ t, delta: tutar, label: (g.tur || 'Gelir beklentisi') });
+    });
+  });
+
+  return { kesin, beklenen, todayIso, endIso };
+}
+
+function npBuildSeries(start, events, todayIso, endIso){
+  const byDay = {};
+  events.forEach(e => { byDay[e.t] = (byDay[e.t] || 0) + e.delta; });
+  const labels = [], vals = [];
+  const d = new Date(todayIso + 'T00:00:00'), endD = new Date(endIso + 'T00:00:00');
+  let pos = start;
+  while (d <= endD){ const k = npIso(d); pos += (byDay[k] || 0); labels.push(k); vals.push(pos); d.setDate(d.getDate()+1); }
+  return { labels, vals };
+}
+
+function renderNakitRaporu(){
+  const start = KASA_MEVCUT;
+  const { kesin, beklenen, todayIso, endIso } = npCollectEvents();
+  const sKesin = npBuildSeries(start, kesin, todayIso, endIso);
+  const sTum   = npBuildSeries(start, kesin.concat(beklenen), todayIso, endIso);
+
+  let minV = Infinity, minI = 0;
+  sKesin.vals.forEach((v,i) => { if (v < minV){ minV = v; minI = i; } });
+  const endV = sKesin.vals.length ? sKesin.vals[sKesin.vals.length-1] : start;
+
+  $("np-start").textContent = fmtTL(start);
+  const endEl = $("np-end"); endEl.textContent = fmtTL(endV);
+  endEl.className = 'np-val ' + (endV < 0 ? 'negative' : 'positive');
+  const minEl = $("np-min"); minEl.textContent = fmtTL(minV);
+  minEl.className = 'np-val ' + (minV < 0 ? 'negative' : 'positive');
+  $("np-min-date").textContent = npTr(sKesin.labels[minI]);
+
+  const cikis = kesin.filter(e => e.delta < 0).reduce((s,e) => s - e.delta, 0);
+  const giris = kesin.filter(e => e.delta > 0).reduce((s,e) => s + e.delta, 0);
+  const gecikmisAdet = kesin.filter(e => e.gecikmis).length;
+  $("np-sub").innerHTML = `${npHorizon} gün · ${kesin.length} kesin kalem · çıkış <b>${fmtTL(cikis)}</b>`
+    + (giris ? ` · giriş <b>${fmtTL(giris)}</b>` : '')
+    + (beklenen.length ? ` · ${beklenen.length} gelir beklentisi (ayrı katman)` : '');
+  $("np-tbl-sub").textContent = `${kesin.length} kalem, tarih sırasıyla`;
+
+  const negIdx = sKesin.vals.findIndex(v => v < 0);
+  const notes = [];
+  notes.push('Bu bir <b>tahmin değil</b> — sisteme girilmiş kesin taahhütlerin (çek, taksit, bekleyen ödeme, ödenmemiş manuel gider) bugünkü kullanılabilir bakiyeden gün gün düşülmesiyle hesaplanır.');
+  if (negIdx >= 0) notes.push(`⚠ Kesin taahhütler tek başına, <b>${npTr(sKesin.labels[negIdx])}</b> tarihinde pozisyonu eksiye çeviriyor.`);
+  else notes.push('Seçilen dönemde kesin taahhütler bakiyeyi eksiye düşürmüyor.');
+  if (gecikmisAdet) notes.push(`${gecikmisAdet} adet vadesi geçmiş ödenmemiş kalem bugüne taşındı.`);
+  notes.push('Hesaba <b>virman dâhil değildir</b> (hesaplar arası transfer, gerçek nakit hareketi sayılmaz). Gelir beklentileri yalnız kesikli çizgide, kesin çizgiyi etkilemez.');
+  $("np-note").innerHTML = notes.join('<br>');
+
+  const sorted = kesin.slice().sort((a,b) => a.t.localeCompare(b.t) || a.delta - b.delta);
+  let run = start;
+  $("np-body").innerHTML = sorted.map(e => {
+    run += e.delta;
+    return `<tr><td>${npTr(e.t)}${e.gecikmis ? ' <span class="gecikmis-tag">(gecikmiş)</span>' : ''}</td>`
+      + `<td>${(e.label||'').slice(0,50)}</td>`
+      + `<td class="num ${e.delta<0?'neg':'pos'}">${e.delta<0?'-':'+'}${fmtTL(Math.abs(e.delta))}</td>`
+      + `<td class="num ${run<0?'neg':''}">${fmtTL(run)}</td></tr>`;
+  }).join('') || '<tr><td colspan="4" class="empty-state">Seçilen dönemde kayıt yok</td></tr>';
+
+  const ctx = $("np-chart"); if (!ctx || typeof Chart === 'undefined') return;
+  if (npChart) npChart.destroy();
+  npChart = new Chart(ctx, {
+    type:'line',
+    data:{ labels: sKesin.labels.map(npTr), datasets:[
+      { label:'Kesin taahhütler', data:sKesin.vals, borderColor:'#14130f', borderWidth:2, pointRadius:0, tension:.1 },
+      { label:'Beklentiler dahil', data:sTum.vals, borderColor:'#4d8d65', borderWidth:2, borderDash:[5,4], pointRadius:0, tension:.1 }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c => c.dataset.label+': '+fmtTL(c.parsed.y) } } },
+      scales:{ x:{ ticks:{ maxTicksLimit:8, font:{size:10} }, grid:{display:false} },
+               y:{ ticks:{ callback:v => fmtTL(v), font:{size:10} } } } }
+  });
+}
+
+async function boot(){
+  try{
+    const [dRes, gRes, mRes] = await Promise.all([
+      fetch('/api/data', { credentials:'include' }),
+      fetch('/api/gelir-beklentileri', { credentials:'include' }),
+      fetch('/api/manuel-giderler', { credentials:'include' }),
+    ]);
+    if (!dRes.ok) throw new Error('HTTP ' + dRes.status);
+    const d = await dRes.json();
+    if (d.hata) throw new Error(d.hata);
+    GELIR = gRes.ok ? await gRes.json() : {};
+    MANUEL = mRes.ok ? await mRes.json() : {};
+
+    KASA_MEVCUT = (d.bakiyeler || []).reduce((s,b) => s + (b.kullanilabilir || 0), 0);
+    // server.py her 'bekleyen' kaydina yon ekliyor ("in"/"out" -- bkz. server.py:366).
+    // Isareti dogrudan buradan al: in -> +tutar (tahsilat), out -> -tutar (odeme).
+    BEKLEYEN = (d.bekleyen || []).map(r => ({ ...r, _delta: (r.yon === 'in' ? 1 : -1) * Math.abs(r.tutar_tl || 0) }));
+    // Capraz kontrol: KPI'nin kendi ayrimiyla (bekleyen_tutar=giris, bekleyen_odeme_tutar=cikis) tutmali
+    const kpiGiris = (d.kpi && d.kpi.bekleyen_tutar) || 0, kpiCikis = (d.kpi && d.kpi.bekleyen_odeme_tutar) || 0;
+    const hesGiris = BEKLEYEN.filter(r=>r._delta>0).reduce((s,r)=>s+r._delta,0);
+    const hesCikis = -BEKLEYEN.filter(r=>r._delta<0).reduce((s,r)=>s+r._delta,0);
+    if (Math.abs(hesGiris-kpiGiris) > 1 || Math.abs(hesCikis-kpiCikis) > 1) {
+      console.warn('Bekleyen giris/cikis capraz kontrolu tutmadi', {hesGiris,kpiGiris,hesCikis,kpiCikis});
+    }
+
+    $("gen-time").textContent = new Date().toLocaleString('tr-TR');
+    $("src-time").textContent = d.guncelleme || '—';
+    $("loading").style.display = "none";
+    $("content").style.display = "block";
+    renderNakitRaporu();
+  }catch(e){
+    $("loading").style.display = "none";
+    $("err-box").textContent = "Veri alınamadı: " + e.message;
+    $("err-box").style.display = "block";
+    console.error(e);
+  }
+}
+boot();
+</script>
+</body>
+</html>
