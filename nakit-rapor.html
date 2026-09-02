@@ -96,6 +96,11 @@
   .anom-section{display:none}
   .anom-section.active{display:block}
 
+  /* Butce Planlama */
+  .bt-eksik{color:var(--accent-ink);font-size:10px;white-space:nowrap}
+  .tbl tr.bt-toplam td{font-weight:700;border-top:2px solid var(--ink);background:var(--paper-2)}
+  .bt-gelir-row td{background:var(--positive-soft)}
+
   @media print {
     .sidebar,.no-print{display:none!important}
     .app{display:block}
@@ -181,6 +186,38 @@
             <tbody id="tekrar-body"></tbody>
           </table></div>
         </div>
+      </div>
+
+      <div class="panel" id="bt-panel">
+        <div class="panel-head">
+          <div><div class="ttl">B&uuml;t&ccedil;e <em>Planlama</em></div><div class="sub" id="bt-sub">&mdash;</div></div>
+          <select id="bt-horizon" class="ddl" onchange="butceHorizonChange(this.value)">
+            <option value="6" selected>6 ayl&#305;k</option>
+            <option value="12">1 y&#305;ll&#305;k</option>
+          </select>
+        </div>
+        <div class="np-row">
+          <div class="np-col"><div class="np-label">Bilinen Taahh&uuml;t</div><div class="np-val" id="bt-bilinen">&#8378;0</div><div class="np-label" style="margin:4px 0 0;text-transform:none">sisteme girilmi&#351;, kesin</div></div>
+          <div class="np-col"><div class="np-label">Ge&ccedil;mi&#351; Ortalama Bazl&#305;</div><div class="np-val" id="bt-ortalama">&#8378;0</div><div class="np-label" style="margin:4px 0 0;text-transform:none">24 d&uuml;zenli kalem &times; ay</div></div>
+          <div class="np-col fark"><div class="np-label">&Ouml;nerilen B&uuml;t&ccedil;e</div><div class="np-val" id="bt-oneri">&#8378;0</div><div class="np-label" style="margin:4px 0 0;text-transform:none">kalem baz&#305;nda y&uuml;ksek olan</div></div>
+        </div>
+        <div class="anom-sub-tabs">
+          <div class="anom-sub-tab active" data-bt-tab="aylik" onclick="butceTabSwitch('aylik')">Ayl&#305;k Da&#287;&#305;l&#305;m</div>
+          <div class="anom-sub-tab" data-bt-tab="kategori" onclick="butceTabSwitch('kategori')">Kalem Baz&#305;nda</div>
+        </div>
+        <div class="anom-section active" id="bt-sec-aylik">
+          <div style="overflow-x:auto"><table class="tbl" id="bt-aylik-table">
+            <thead><tr><th>Ay</th><th class="num">Bilinen Taahh&uuml;t</th><th class="num">Ortalama Bazl&#305;</th><th class="num">&Ouml;nerilen B&uuml;t&ccedil;e</th></tr></thead>
+            <tbody id="bt-aylik-body"></tbody>
+          </table></div>
+        </div>
+        <div class="anom-section" id="bt-sec-kategori">
+          <div style="overflow-x:auto;max-height:460px;overflow-y:auto"><table class="tbl" id="bt-kat-table">
+            <thead><tr><th>&Ouml;deme T&uuml;r&uuml;</th><th class="num">Ayl&#305;k Ort.</th><th class="num">D&ouml;nem Bilinen</th><th class="num">D&ouml;nem Ort.&times;Ay</th><th class="num">&Ouml;neri</th></tr></thead>
+            <tbody id="bt-kat-body"></tbody>
+          </table></div>
+        </div>
+        <div class="np-note" id="bt-note"></div>
       </div>
 
       <div class="panel">
@@ -450,6 +487,166 @@ function renderTekrarTable(){
   ).join('') || '<tr><td colspan="4" class="empty-state">Düzenli görülen kalem yok</td></tr>';
 }
 
+/* ============================================================
+   Butce Planlama (6 / 12 ay) -- model YOK, iki veri kaynaginin birlestirilmesi.
+
+   Kaynak 1 -- BILINEN TAAHHUT (BEKLEYEN, /api/data): kesin ve tarihli, 2029'a
+     kadar uzuyor. AMA uzak aylarda EKSIK: henuz yazilmamis cekler, gelmemis
+     faturalar orada yok. Bu yuzden tek basina kullanilirsa butce dusuk cikar.
+   Kaynak 2 -- GECMIS ORTALAMA (anomMonthlyPivot, Faz B): 24 duzenli kalemin
+     aylik ortalamasi. Tum kalemleri kapsar AMA sozlesmeyle tam planli
+     kalemlerde (murabaha/leasing gibi) fazla tahmin eder -- cunku gecmisteki
+     odemeler devam ediyormus gibi varsayar, oysa taksitler bitebilir.
+
+   Cozum: otomatik bir tercih yapmak yerine IKISINI DE goster, oneriyi
+   KALEM BAZINDA max() ile kur (toplam bazinda degil -- cunku CEK'te ortalama,
+   MURABAHA'da bilinen kazanir; toplamda max alinirsa bu nuans kaybolur).
+   ============================================================ */
+let btHorizon = 6;
+
+function butceHorizonChange(v){ btHorizon = +v || 6; renderButce(); }
+function butceTabSwitch(tab){
+  document.querySelectorAll('[data-bt-tab]').forEach(el => el.classList.toggle('active', el.dataset.btTab === tab));
+  document.querySelectorAll('#bt-sec-aylik,#bt-sec-kategori').forEach(el => el.classList.remove('active'));
+  $('bt-sec-' + tab).classList.add('active');
+}
+
+// Gecmis aylik ortalama, kalem bazinda (yalniz Faz B'nin "duzenli" tanimini gecenler)
+function btKalemOrtalamalari(){
+  const out = {};
+  const ayN = anomAvailableMonths.length;
+  if (!ayN) return out;
+  Object.keys(anomMonthlyPivot).forEach(tur => {
+    const seri = anomMonthlyPivot[tur];
+    const vals = anomAvailableMonths.map(mk => seri[mk] || 0).filter(v => v > 0);
+    // Faz B ile ayni "duzenli" tanimi: >=4 gozlem VE aylarin >=%70'inde gorulmus
+    if (vals.length < 4 || vals.length / ayN < 0.7) return;
+    out[tur] = vals.reduce((a,b)=>a+b,0) / vals.length;
+  });
+  return out;
+}
+
+// Gecmis aylik ortalama gelir (referans -- ince veri, uyariyla sunulur)
+function btGelirOrtalamasi(){
+  const byMonth = {};
+  FULL_ISLEMLER.forEach(r => {
+    if (r.yon !== 'in') return;
+    if (String(r.durum).toUpperCase() !== 'ÖDENDİ') return;
+    const iso = trDateToIso(r.tarih_tam); if (!iso) return;
+    const mk = iso.slice(0,7);
+    if (!anomAvailableMonths.includes(mk)) return;   // yalniz tamamlanmis+guvenilir aylar
+    byMonth[mk] = (byMonth[mk] || 0) + Math.abs(r.tutar_tl || 0);
+  });
+  const vals = Object.values(byMonth);
+  return vals.length ? vals.reduce((a,b)=>a+b,0) / vals.length : 0;
+}
+
+function butceHesapla(ayAdedi){
+  const ortalamalar = btKalemOrtalamalari();
+  const bugun = new Date(); bugun.setHours(0,0,0,0);
+
+  // Butce GELECEK aydan baslar -- cari ay zaten baslamis/kismen harcanmis,
+  // ve gunluk takibi Nakit Projeksiyon panelinde yapiliyor.
+  const aylar = [];
+  for (let i = 1; i <= ayAdedi; i++){
+    const d = new Date(bugun.getFullYear(), bugun.getMonth() + i, 1);
+    aylar.push(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
+  }
+
+  // Bilinen taahhutleri ay + kalem bazinda topla (yalniz cikis)
+  const bilinenAyKalem = {};   // { 'YYYY-MM': { tur: tutar } }
+  aylar.forEach(mk => bilinenAyKalem[mk] = {});
+  BEKLEYEN.forEach(r => {
+    if (r._delta >= 0) return;                       // yalniz cikis
+    const iso = trDateToIso(r.vade || r.tarih); if (!iso) return;
+    const mk = iso.slice(0,7);
+    if (!bilinenAyKalem[mk]) return;                 // ufuk disinda
+    const tur = r.odeme_turu || '(belirsiz)';
+    bilinenAyKalem[mk][tur] = (bilinenAyKalem[mk][tur] || 0) + Math.abs(r._delta);
+  });
+
+  // Aylik satirlar
+  const aylikSatirlar = aylar.map(mk => {
+    const bilenler = bilinenAyKalem[mk];
+    const turSet = new Set([...Object.keys(ortalamalar), ...Object.keys(bilenler)]);
+    let bilinen = 0, ortalama = 0, onerilen = 0;
+    turSet.forEach(tur => {
+      const b = bilenler[tur] || 0;
+      const o = ortalamalar[tur] || 0;
+      bilinen += b; ortalama += o; onerilen += Math.max(b, o);
+    });
+    return { mk, bilinen, ortalama, onerilen };
+  });
+
+  // Kalem bazinda donem toplamlari
+  const turSet = new Set([...Object.keys(ortalamalar)]);
+  aylar.forEach(mk => Object.keys(bilinenAyKalem[mk]).forEach(t => turSet.add(t)));
+  const katSatirlar = [...turSet].map(tur => {
+    const aylikOrt = ortalamalar[tur] || 0;
+    const donemBilinen = aylar.reduce((s, mk) => s + (bilinenAyKalem[mk][tur] || 0), 0);
+    const donemOrt = aylikOrt * ayAdedi;
+    const donemOneri = aylar.reduce((s, mk) => s + Math.max(bilinenAyKalem[mk][tur] || 0, aylikOrt), 0);
+    return { tur, aylikOrt, donemBilinen, donemOrt, donemOneri };
+  }).sort((a,b) => b.donemOneri - a.donemOneri);
+
+  return {
+    aylar, aylikSatirlar, katSatirlar,
+    toplam: {
+      bilinen: aylikSatirlar.reduce((s,r)=>s+r.bilinen,0),
+      ortalama: aylikSatirlar.reduce((s,r)=>s+r.ortalama,0),
+      onerilen: aylikSatirlar.reduce((s,r)=>s+r.onerilen,0),
+    },
+    gelirAylik: btGelirOrtalamasi(),
+    kalemSayisi: Object.keys(ortalamalar).length,
+  };
+}
+
+function renderButce(){
+  if (!$("bt-panel")) return;
+  const b = butceHesapla(btHorizon);
+  const AY = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+  const ayAdi = mk => { const p = mk.split('-'); return `${AY[+p[1]-1]} ${p[0]}`; };
+
+  $("bt-bilinen").textContent = fmtTL(b.toplam.bilinen);
+  $("bt-ortalama").textContent = fmtTL(b.toplam.ortalama);
+  $("bt-oneri").textContent = fmtTL(b.toplam.onerilen);
+
+  const ilk = b.aylar[0], son = b.aylar[b.aylar.length-1];
+  const gelirDonem = b.gelirAylik * btHorizon;
+  $("bt-sub").innerHTML = `${ayAdi(ilk)} &ndash; ${ayAdi(son)} · ${b.kalemSayisi} düzenli kalem`
+    + (b.gelirAylik ? ` · geçmiş ortalama gelir <b>${fmtTL(b.gelirAylik)}</b>/ay` : '');
+
+  // Aylik tablo
+  $("bt-aylik-body").innerHTML = b.aylikSatirlar.map(r => {
+    const eksik = r.bilinen < r.ortalama * 0.5
+      ? ' <span class="bt-eksik">(taahhüt eksik görünüyor)</span>' : '';
+    return `<tr><td>${ayAdi(r.mk)}${eksik}</td>`
+      + `<td class="num">${fmtTL(r.bilinen)}</td>`
+      + `<td class="num">${fmtTL(r.ortalama)}</td>`
+      + `<td class="num"><b>${fmtTL(r.onerilen)}</b></td></tr>`;
+  }).join('')
+  + `<tr class="bt-toplam"><td>TOPLAM (${btHorizon} ay)</td><td class="num">${fmtTL(b.toplam.bilinen)}</td>`
+  + `<td class="num">${fmtTL(b.toplam.ortalama)}</td><td class="num">${fmtTL(b.toplam.onerilen)}</td></tr>`
+  + (b.gelirAylik ? `<tr class="bt-gelir-row"><td>Geçmiş ortalamaya göre gelir (referans)</td><td class="num">&mdash;</td><td class="num">${fmtTL(gelirDonem)}</td><td class="num">${fmtTL(gelirDonem)}</td></tr>` : '');
+
+  // Kalem tablosu
+  $("bt-kat-body").innerHTML = b.katSatirlar.map(r =>
+    `<tr><td>${r.tur}</td><td class="num">${r.aylikOrt ? fmtTL(r.aylikOrt) : '<span class="muted">—</span>'}</td>`
+    + `<td class="num">${fmtTL(r.donemBilinen)}</td>`
+    + `<td class="num">${r.aylikOrt ? fmtTL(r.donemOrt) : '<span class="muted">—</span>'}</td>`
+    + `<td class="num"><b>${fmtTL(r.donemOneri)}</b></td></tr>`
+  ).join('') || '<tr><td colspan="5" class="empty-state">Kalem yok</td></tr>';
+
+  const notlar = [];
+  notlar.push('<b>Bu bir tahmin modeli değildir.</b> İki kaynağın birleşimidir: sisteme girilmiş <b>kesin taahhütler</b> ve <b>geçmiş 5 ayın kalem ortalamaları</b>.');
+  notlar.push('<b>Bilinen taahhüt</b> uzak aylarda eksik kalır — henüz yazılmamış çekler, gelmemiş faturalar orada yoktur. <b>Geçmiş ortalama</b> ise tüm kalemleri kapsar ama taksitleri biten sözleşmelerde (murabaha/leasing) fazla tahmin edebilir.');
+  notlar.push('<b>Önerilen bütçe</b>, her kalem için bu iki rakamdan yüksek olanı alır — toplamda değil kalem bazında, çünkü ÇEK\'te ortalama, MURABAHA\'da bilinen taahhüt daha doğrudur. Nihai kararı iki sütuna birlikte bakarak verin.');
+  notlar.push(`Dönem <b>gelecek aydan</b> başlar (cari ay zaten devam ediyor, günlük takibi Nakit Projeksiyon panelinde).`);
+  if (b.gelirAylik) notlar.push('Gelir satırı yalnız <b>kaba bir referanstır</b> — 5 aylık geçmişte 169 tahsilat kaydı var, bu bir gelir taahhüdü değildir. Gerçek beklentiler Ödeme Takip\'teki Gelir Beklentileri panelinden girilir.');
+  notlar.push('Geçmiş penceresi yalnız <b>5 ay</b> (Nisan-Ağustos 2026) — yıllık mevsimsellik (bayram, yıl sonu, vergi dönemleri) bu veriye henüz yansımadı. 12 aylık plana bu gözle bakın.');
+  $("bt-note").innerHTML = notlar.join('<br>');
+}
+
 async function boot(){
   try{
     const [dRes, gRes, mRes, fRes] = await Promise.all([
@@ -487,6 +684,7 @@ async function boot(){
     renderNakitRaporu();
     renderAnomTable();
     renderTekrarTable();
+    renderButce();
   }catch(e){
     $("loading").style.display = "none";
     $("err-box").textContent = "Veri alınamadı: " + e.message;
