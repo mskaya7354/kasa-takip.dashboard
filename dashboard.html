@@ -150,6 +150,10 @@
   .summary-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:var(--sp-2);border-bottom:1px solid var(--rule);padding-bottom:6px}
   .summary-header .h-ttl{font-weight:600;font-size:13px}
   .summary-row{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;gap:var(--sp-2)}
+  .mpay-row{cursor:pointer;border-radius:6px;padding-left:4px;padding-right:4px;margin:0 -4px}
+  .mpay-row:hover{background:var(--paper-2)}
+  .mpay-back{color:var(--accent-ink)}
+  .mpay-back:hover{background:transparent;text-decoration:underline}
   .summary-footer{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:var(--sp-2);padding-top:6px;border-top:1px solid var(--rule);gap:var(--sp-2);flex-wrap:wrap}
   .summary-footer b{color:var(--ink-2);font-family:var(--mono);font-weight:500}
   .chk-hero{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}
@@ -833,6 +837,8 @@ window.renderMonthlyPayments = function() {
       data:{ labels, datasets:[{ label:"Ödeme", data, backgroundColor: pal.accent, borderRadius:4, barPercentage:.7 }] },
       options:{
         responsive:true, maintainAspectRatio:false,
+        onClick:(evt, els) => { if (els.length) mpaySelectMonth(els[0].index); },
+        onHover:(evt, els) => { if (evt.native) evt.native.target.style.cursor = els.length ? "pointer" : "default"; },
         plugins:{ legend:{display:false},
                   tooltip:{...tt, callbacks:{ label:c=>`${aylar[c.dataIndex]}: ${fmtTL(c.raw)}` }} },
         scales:{ x:{grid:{display:false}, border:{color:pal.rule}},
@@ -841,10 +847,10 @@ window.renderMonthlyPayments = function() {
     });
 
     if (listEl) {
-      const filled = aylar.map((a,i) => ({ad:a, tutar:byMonth[i]||0})).filter(x => x.tutar > 0);
+      const filled = aylar.map((a,i) => ({ad:a, i, tutar:byMonth[i]||0})).filter(x => x.tutar > 0);
       listEl.innerHTML = filled.length ? (filled.map(x => {
         const pct = toplam>0 ? (x.tutar/toplam*100) : 0;
-        return `<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0;border-bottom:1px dashed var(--rule)">
+        return `<div class="mpay-row" onclick="mpaySelectMonth(${x.i})" style="display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0;border-bottom:1px dashed var(--rule)">
           <div>${x.ad} <span style="color:var(--muted)">· %${pct.toFixed(1)}</span></div>
           <div class="mono">${fmtTL(x.tutar)}</div></div>`;
       }).join("") + mpayToplamSatiri(`${selYear} toplam`, toplam))
@@ -882,15 +888,29 @@ window.renderMonthlyPayments = function() {
     });
 
     if (listEl) {
-      listEl.innerHTML = arr.length ? (arr.map(([k,v]) => {
+      const backRow = `<div class="mpay-row mpay-back" onclick="mpayBackToYear()" style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:4px 0 8px">&larr; T&uuml;m aylar</div>`;
+      listEl.innerHTML = backRow + (arr.length ? (arr.map(([k,v]) => {
         const pct = toplam>0 ? (v/toplam*100) : 0;
         return `<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0;border-bottom:1px dashed var(--rule)">
           <div>${k} <span style="color:var(--muted)">· %${pct.toFixed(1)}</span></div>
           <div class="mono">${fmtTL(v)}</div></div>`;
       }).join("") + mpayToplamSatiri(`${aylar[mi]} ${selYear} toplam`, toplam))
-      : `<div class="empty-state" style="padding:10px">Bu ay için ödeme kaydı yok</div>`;
+      : `<div class="empty-state" style="padding:10px">Bu ay için ödeme kaydı yok</div>`);
     }
   }
+};
+
+// Grafikteki bir cubuga veya alttaki liste satirina tiklayinca o ayin turu
+// kirilimina "genisler" -- mpay-month dropdown'i secmekle ayni etkiyi yapar.
+window.mpaySelectMonth = function(mi) {
+  const sel = $("mpay-month");
+  if (sel) sel.value = mi;
+  renderMonthlyPayments();
+};
+window.mpayBackToYear = function() {
+  const sel = $("mpay-month");
+  if (sel) sel.value = "all";
+  renderMonthlyPayments();
 };
 
 function mpayToplamSatiri(etiket, toplam) {
