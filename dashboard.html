@@ -1432,7 +1432,20 @@ window.renderChecks = function() {
     return true;
   });
 
+  // Siralama onceligi: 1) bekleyen + vadesi bulunulan ayda olanlar (en aciliyet
+  // tasiyan, gecikmis olanlar degil -- kullanici acikca boyle istedi), 2) diger
+  // bekleyenler (gecikmis + gelecek aylar, vadeye gore artan), 3) odenenler.
+  const _now = new Date();
+  const _curMonthKey = _now.getFullYear() + '-' + String(_now.getMonth()+1).padStart(2,'0');
+  const _isCurMonthBekleyen = r => {
+    if (r.kapali) return false;
+    const d = parseTr(r.vade);
+    if (!d) return false;
+    return (d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0')) === _curMonthKey;
+  };
   rows = rows.slice().sort((a,b) => {
+    const aCur = _isCurMonthBekleyen(a), bCur = _isCurMonthBekleyen(b);
+    if (aCur !== bCur) return aCur ? -1 : 1;
     if (!!a.kapali !== !!b.kapali) return a.kapali ? 1 : -1;
     if(!a.vade) return 1; if(!b.vade) return -1;
     return parseTr(a.vade) - parseTr(b.vade);
