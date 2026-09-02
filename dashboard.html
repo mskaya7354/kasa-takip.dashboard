@@ -848,13 +848,22 @@ window.renderMonthlyPayments = function() {
 
     if (listEl) {
       const filled = aylar.map((a,i) => ({ad:a, i, tutar:byMonth[i]||0})).filter(x => x.tutar > 0);
-      listEl.innerHTML = filled.length ? (filled.map(x => {
+      const isOpen = listEl.dataset.open === "1";
+      const bodyRows = filled.map(x => {
         const pct = toplam>0 ? (x.tutar/toplam*100) : 0;
         return `<div class="mpay-row" onclick="mpaySelectMonth(${x.i})" style="display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0;border-bottom:1px dashed var(--rule)">
           <div>${x.ad} <span style="color:var(--muted)">· %${pct.toFixed(1)}</span></div>
           <div class="mono">${fmtTL(x.tutar)}</div></div>`;
-      }).join("") + mpayToplamSatiri(`${selYear} toplam`, toplam))
-      : `<div class="empty-state" style="padding:10px">Bu yıl için ödeme kaydı yok</div>`;
+      }).join("");
+      // Varsayilan kapali: sadece toplam satiri gorunur, yer kaplamaz. Tiklayinca
+      // aylik kirilim (ustteki satirlar) acilir/kapanir -- tx-summary ile ayni desen.
+      listEl.innerHTML = filled.length ? (
+        `<div class="summary-toggle" onclick="mpayToggleList()">
+          <div class="summary-title"><span id="mpay-list-arrow" class="summary-arrow">${isOpen?'▾':'▸'}</span>${selYear} toplam <span class="muted" style="font-weight:400">· ${filled.length} ay, detay için tıklayın</span></div>
+          <div class="mono summary-total">${fmtTL(toplam)}</div>
+        </div>
+        <div id="mpay-list-body" class="summary-body" style="display:${isOpen?'block':'none'}">${bodyRows}</div>`
+      ) : `<div class="empty-state" style="padding:10px">Bu yıl için ödeme kaydı yok</div>`;
     }
   } else {
     // ---- AY GÖRÜNÜMÜ: ödeme türü kırılımı ----
@@ -911,6 +920,18 @@ window.mpayBackToYear = function() {
   const sel = $("mpay-month");
   if (sel) sel.value = "all";
   renderMonthlyPayments();
+};
+// Yil gorunumundeki aylik kirilim listesini ac/kapa -- varsayilan kapali (sadece
+// toplam satiri gorunur, yer kaplamaz), tx-summary ile ayni tiklanabilir-baslik deseni.
+window.mpayToggleList = function() {
+  const el = $("mpay-list");
+  if (!el) return;
+  const open = el.dataset.open === "1";
+  el.dataset.open = open ? "0" : "1";
+  const body = $("mpay-list-body");
+  if (body) body.style.display = open ? "none" : "block";
+  const arrow = $("mpay-list-arrow");
+  if (arrow) arrow.textContent = open ? "▸" : "▾";
 };
 
 function mpayToplamSatiri(etiket, toplam) {
