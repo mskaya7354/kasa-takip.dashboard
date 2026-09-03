@@ -1,0 +1,16 @@
+[Unit]
+Description=Kasa Takip Dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/kasa
+Environment=KASA_USER=<kullanici-adi>
+Environment=KASA_PASS=<guclu-sifre>
+ExecStart=/usr/bin/python3 /opt/kasa/server.py --file "/path/to/Kasa_Takip.xlsm" --kredi-file "/path/to/Kredi_Portfoyu.xlsx" --port 8765 --polling
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

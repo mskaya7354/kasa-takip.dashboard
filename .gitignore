@@ -12,3 +12,4 @@ start_out.txt
 stop.flag
 restart.flag
 .env
+kasa.service.live
