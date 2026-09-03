@@ -663,12 +663,11 @@ function renderGelirBeklentileri() {
   html += entries.map(e => {
     const row = e.row;
     if (row.geldi) {
-      const tarihTxt = row.gelisTarihi ? new Date(row.gelisTarihi+'T00:00:00').toLocaleDateString('tr-TR') : '';
       return `<tr class="gelir-geldi-row" data-month="${e.month}" data-idx="${e.idx}">
         <td>${row.tur||'<span class="muted">İsimsiz</span>'}</td>
         <td class="num">${fmtTL(row.tutar||0)}</td>
-        <td style="text-align:center">&#10003;</td>
-        <td class="mono">${tarihTxt}</td>
+        <td style="text-align:center"><button class="btn gb-geri" style="width:auto;padding:3px 8px;font-size:11px" title="Bekliyor'a geri al">&#8617; Geri al</button></td>
+        <td><input type="date" class="gb-tarih" value="${row.gelisTarihi||''}" title="Geliş tarihini düzenle"></td>
         <td><button class="gelir-del-btn gb-del" title="Satırı sil">&#10005;</button></td>
       </tr>`;
     }
@@ -698,6 +697,13 @@ function renderGelirBeklentileri() {
       tutarInput.addEventListener('blur', function(){ const v = gelirBeklentileri[month][idx].tutar; this.value = v ? Number(v).toLocaleString('tr-TR') : ''; });
     }
     if (odeBtn) odeBtn.addEventListener('click', function(){ gelirRowOde(month, idx); });
+    const geriBtn = tr.querySelector('.gb-geri');
+    const tarihInput = tr.querySelector('.gb-tarih');
+    if (geriBtn) geriBtn.addEventListener('click', function(){ gelirRowGeriAl(month, idx); });
+    if (tarihInput) tarihInput.addEventListener('change', function(){
+      gelirBeklentileri[month][idx].gelisTarihi = this.value || null;
+      saveGelirBeklentileri();
+    });
     if (delBtn) delBtn.addEventListener('click', function(){
       const arr = gelirBeklentileri[month];
       if (arr) arr.splice(idx, 1);
@@ -722,14 +728,32 @@ function gelirRowOde(month, idx) {
   const odenen = parseTutar(girilen);
   if (!odenen || odenen <= 0) { showToast('Geçerli bir tutar girin.', 'error'); return; }
   const bugun = isoDate(new Date());
+  // Gelis tarihi varsayilan bugun -- istersen degistir (GG.AA.YYYY), bos birakirsan bugun kalir.
+  // Kayittan sonra da tarih hucresindeki takvim ikonundan (input type=date) her zaman duzeltilebilir.
+  const tarihGirisi = window.prompt(`Geliş tarihi? (GG.AA.YYYY — boş bırakırsan bugün: ${new Date().toLocaleDateString('tr-TR')})`, '');
+  if (tarihGirisi === null) return;   // vazgecti
+  const tarihIso = tarihGirisi.trim() ? trDateToIso(tarihGirisi.trim()) : null;
+  if (tarihGirisi.trim() && !tarihIso) { showToast('Tarih GG.AA.YYYY biçiminde olmalı — bugün kullanıldı.', 'error'); }
+  const gelisTarihi = tarihIso || bugun;
   if (odenen >= mevcut) {
-    row.geldi = true; row.gelisTarihi = bugun;
+    row.geldi = true; row.gelisTarihi = gelisTarihi;
   } else {
     row.tutar = mevcut - odenen;
     const curMonth = $("tur-month").value;
     if (!gelirBeklentileri[curMonth]) gelirBeklentileri[curMonth] = [];
-    gelirBeklentileri[curMonth].push({ tur: row.tur, tutar: odenen, geldi: true, gelisTarihi: bugun });
+    gelirBeklentileri[curMonth].push({ tur: row.tur, tutar: odenen, geldi: true, gelisTarihi: gelisTarihi });
   }
+  saveGelirBeklentileri();
+  renderGelirBeklentileri();
+}
+// "Geldi" isaretini geri alir -- satir tekrar "Bekliyor" olur ve odenene kadar
+// sonraki aylara devretmeye devam eder (getGelirRowsForMonth ile ayni mantik).
+// Kismi odemeden dogan bir satirsa orijinal satirla otomatik birlesmez -- gerekirse elle.
+function gelirRowGeriAl(month, idx) {
+  const arr = gelirBeklentileri[month];
+  if (!arr || !arr[idx]) return;
+  arr[idx].geldi = false;
+  arr[idx].gelisTarihi = null;
   saveGelirBeklentileri();
   renderGelirBeklentileri();
 }
