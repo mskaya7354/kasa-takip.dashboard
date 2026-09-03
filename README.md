@@ -17,35 +17,68 @@ Gerçek bir iş ihtiyacı için yapıldı: muhasebe Excel'de kayıt tutuyor, yö
 
 ## Mimari
 
+Uygulama iki dağıtım modunu da destekler. **Üretimde A modu kullanılıyor.**
+
+### A) Tek sunucu (üretimdeki kurulum)
+
+Tek bir Linux sunucu servisi, Excel'i CIFS/SMB mount üzerinden okur; LAN'daki
+tüm tarayıcılar aynı sunucuya bağlanır.
+
+```
+   ┌──────────────────────────┐
+   │  Dosya Sunucusu (SMB)    │
+   │  Kasa_Takip.xlsm         │◀── Muhasebe kaydediyor
+   └────────────┬─────────────┘
+                │ CIFS mount (/mnt/...)
+                ▼
+   ┌──────────────────────────┐
+   │  Linux Sunucu (7/24)     │
+   │  systemd: kasa.service   │
+   │  python3 server.py       │
+   │  --polling  :8765        │
+   └────────────┬─────────────┘
+                │ LAN
+                ▼
+   ┌──────────────────────────────────────┐
+   │  Tarayıcılar — LAN'daki her cihaz    │
+   │  http://<sunucu-ip>:8765             │
+   │  HTTP Basic Auth ile korumalı        │
+   └──────────────────────────────────────┘
+```
+
+Tek servis; `systemctl restart kasa` ile yönetilir. Dosya SMB üzerinden
+okunduğu için `--polling` şart (watchdog inotify olayları SMB'de tetiklenmez).
+Kurulum için `kasa.service.example` dosyasına bakın.
+
+### B) Çok-PC dağıtık (alternatif / merkezi sunucusuz)
+
+Sunucu ayırmak istemeyen kurulumlar için: her PC kendi `server.py`'ını
+çalıştırır, hepsi aynı paylaşımlı Excel'i izler, mDNS ile `kasa.local`
+olarak kendini duyurur.
+
 ```
               ┌─────────────────────────┐
               │  Paylaşımlı Network     │
               │  Drive (SMB/UNC)        │
-              │                         │
               │  Kasa_Takip.xlsm        │◀── Muhasebe kaydediyor
-              │  stop.flag (signal)     │
-              │  restart.flag (signal)  │
+              │  stop.flag / restart.flag│
               └────────────┬────────────┘
                            │ Tüm PC'ler aynı dosyayı izler
         ┌──────────────────┼──────────────────┐
         ▼                  ▼                  ▼
    ┌──────────┐       ┌──────────┐       ┌──────────┐
    │ PC #1    │       │ PC #2    │       │ PC #N    │
-   │ python   │       │ python   │       │ python   │
    │ server.py│       │ server.py│       │ server.py│
    │ :8765    │       │ :8765    │       │ :8765    │
-   └─────┬────┘       └─────┬────┘       └─────┬────┘
-         │ mDNS              │ mDNS              │ mDNS
-         │ kasa.local        │ kasa.local        │ kasa.local
-         ▼                   ▼                   ▼
-   ┌─────────────────────────────────────────────────┐
-   │  Tarayıcılar — LAN'daki herhangi bir cihaz       │
-   │  http://kasa.local:8765 (veya IP:8765)           │
-   │  HTTP Basic Auth ile korumalı                    │
-   └──────────────────────────────────────────────────┘
+   └──────────┘       └──────────┘       └──────────┘
+         mDNS: kasa.local — her PC kendi tarayıcılarına servis eder
 ```
 
-Her PC bağımsız çalışır, ancak ortak Excel'i izlediği için **veri tutarlılığı dosya seviyesinde** sağlanır. Sinyal dosyaları (`stop.flag`, `restart.flag`) tek bir komutla tüm PC'lerdeki sunucuları durdurmaya/yeniden başlatmaya yarar.
+Her PC bağımsız çalışır, ortak Excel'i izlediği için **veri tutarlılığı dosya
+seviyesinde** sağlanır. Sinyal dosyaları (`stop.flag`, `restart.flag`) tek
+komutla tüm PC'lerdeki sunucuları durdurmaya/yeniden başlatmaya yarar — bu
+mod için `kurulum.bat` / `durdur_hepsi.bat` / `trigger_yenile.bat` betikleri
+kullanılır.
 
 ## Özellikler
 
