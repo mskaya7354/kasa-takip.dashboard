@@ -1,10 +1,19 @@
 # Kasa Takip Dashboard
 
-Kurumsal kasa, banka bakiyesi ve döviz kuru hareketlerini izleyen **gerçek zamanlı, çok-PC dağıtık dashboard**. Tek bir paylaşımlı Excel dosyasını (`xlsm`) kaynak olarak kullanır; muhasebe ekibi dosyayı kaydeder, ağdaki tüm bilgisayarlarda açık dashboard otomatik güncellenir.
+Kurumsal kasa, banka bakiyesi, döviz kuru, kredi portföyü, ödeme takvimi ve nakit projeksiyonunu izleyen **gerçek zamanlı, çok-PC dağıtık dashboard**. Tek bir paylaşımlı Excel dosyasını (`xlsm`) kaynak olarak kullanır; muhasebe ekibi dosyayı kaydeder, ağdaki tüm bilgisayarlarda açık dashboard otomatik güncellenir.
 
 Gerçek bir iş ihtiyacı için yapıldı: muhasebe Excel'de kayıt tutuyor, yönetim canlı bakiye/akış görmek istiyor ama herkesin Excel'i açıp kapatması verimsiz ve birden fazla kullanıcı aynı anda açamıyor. Bu uygulama Excel'i tek doğruluk kaynağı olarak korurken, üzerine canlı görselleştirme katmanı ekler.
 
-**No-build, no-framework:** tek Python sunucusu + tek HTML dosyası. Vanilla JS + Chart.js. Frontend için npm/webpack/vite yok.
+**No-build, no-framework:** tek Python sunucusu + birkaç bağımsız HTML sayfası. Vanilla JS + Chart.js. Frontend için npm/webpack/vite yok.
+
+## Sayfalar
+
+| Sayfa | Yol | İçerik |
+|-------|-----|--------|
+| Ana Dashboard | `/` | Kasa, banka, döviz — KPI'lar + grafikler |
+| Kredi Portföyü | `/kredi` | Kredi/leasing/teminat mektubu takibi, tarayıcıda (client-side) Excel parse |
+| Ödeme Takip Panosu | `/odeme-takip` | Bekleyen/gelecek ödemeler, filtreler, takvim görünümü, gelir beklentileri |
+| Nakit Raporu | `/nakit-rapor` | Dönemsel nakit pozisyonu, bütçe planlama (6 ay/1 yıl), anomali + tekrarlayan kalem tespiti |
 
 ## Mimari
 
@@ -54,6 +63,11 @@ Her PC bağımsız çalışır, ancak ortak Excel'i izlediği için **veri tutar
 - **Polling fallback** — WebSocket düşerse 20 sn'de bir REST polling devreye girer
 - **Embedded Python desteği** — sistemde Python yoksa `_ARSIV/python` klasöründen kullanır
 - **Sıfır build** — vanilla HTML + Chart.js (lokal servis edilir, CDN bağımlılığı yok)
+- **Kredi Portföyü** — kredi/leasing/teminat mektubu takibi; Excel tarayıcıda (client-side) parse edilir, sunucu sadece dosyayı ve değişiklik zamanını sunar
+- **Ödeme Takip Panosu** — bekleyen/gelecek ödemeler için filtreli liste + takvim görünümü, gelir beklentileri kaydı
+- **Nakit Raporu** — bütçe planlama (6 ay / 1 yıl projeksiyon), anomali tespiti ve tekrarlayan kalem tanıma
+- **HTTPS desteği** — `--ssl-cert` / `--ssl-key` ile opsiyonel TLS
+- **PWA manifest** — tarayıcıya "ana ekrana ekle" desteği
 
 ## Hızlı başlangıç
 
@@ -79,9 +93,11 @@ Dashboard: `http://kasa.local:8765` (mDNS yayını) ya da `http://<bilgisayar-ip
 | Argüman | Açıklama | Varsayılan |
 |---------|----------|------------|
 | `--file` | Excel dosya yolu (zorunlu) | — |
+| `--kredi-file` | Kredi/leasing/teminat mektubu Excel yolu (opsiyonel) | — |
 | `--port` | HTTP/WebSocket portu | `8765` |
 | `--host` | Bind adresi | `0.0.0.0` |
 | `--polling` | Watchdog polling modu (network drive'larda gerekli) | kapalı |
+| `--ssl-cert` / `--ssl-key` | HTTPS için sertifika/anahtar yolu (opsiyonel) | — |
 
 ### Ortam değişkenleri
 
@@ -133,8 +149,13 @@ Dashboard: `http://kasa.local:8765` (mDNS yayını) ya da `http://<bilgisayar-ip
 | `GET /api/refresh` | ✓ | Manuel cache invalidation + reparse |
 | `GET /api/health` | — | Sunucu durumu, bağlı WS sayısı, son güncelleme |
 | `GET /api/test` | — | Diagnostic — KPI sayısı, grup sayısı |
+| `GET /kredi` · `/odeme-takip` · `/nakit-rapor` | ✓ | Ek dashboard sayfaları |
+| `GET /api/kredi-file` | ✓ | Ham kredi Excel'i — parse tarayıcıda yapılır |
+| `GET/POST /api/kredi-notlar` | ✓ | Kredi kalemlerine not ekleme |
+| `GET/POST /api/gelir-beklentileri` | ✓ | Gelir beklentisi kayıtları |
+| `GET/POST /api/manuel-giderler` | ✓ | Elle girilen gider kayıtları |
 | `WS /ws` | — | Canlı güncelleme stream'i |
-| `GET /chart.min.js` | — | Lokal Chart.js bundle |
+| `GET /chart.min.js` · `/xlsx.full.min.js` | — | Lokal JS bundle'ları (Chart.js, SheetJS) |
 
 ## Stack
 
