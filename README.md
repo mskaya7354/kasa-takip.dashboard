@@ -141,6 +141,9 @@ Dashboard: `http://kasa.local:8765` (mDNS yayını) ya da `http://<bilgisayar-ip
 
 ## Yardımcı betikler
 
+Aşağıdakiler **B modu** (çok-PC dağıtık) içindir — üretimdeki A modu
+(systemd) bunları kullanmaz, servis doğrudan `systemctl` ile yönetilir.
+
 | Dosya | Ne yapar |
 |-------|----------|
 | `baslat.bat` | Manuel başlatma — etkileşimli, log konsola |
@@ -199,7 +202,7 @@ Dashboard: `http://kasa.local:8765` (mDNS yayını) ya da `http://<bilgisayar-ip
 ## Güvenlik notu
 
 - **Basic Auth** ile korumalı, ama HTTP üzerinden çalıştığı için trafiği güvenilir LAN'da tutmak gerekir
-- **Reverse proxy + HTTPS** önerilir üretim için
+- **HTTPS** için ya `--ssl-cert`/`--ssl-key` ile native TLS ya da reverse proxy önerilir
 - **CORS `*`** — şu an açık; whitelist'e çevirmek isteyenler `server.py` içinden değiştirebilir
 - İnternete açmadan önce port forwarding yapmayın; bu uygulama dahili kullanım içindir
 
