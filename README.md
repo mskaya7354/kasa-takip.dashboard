@@ -6,14 +6,49 @@ Gerçek bir iş ihtiyacı için yapıldı: muhasebe Excel'de kayıt tutuyor, yö
 
 **No-build, no-framework:** tek Python sunucusu + birkaç bağımsız HTML sayfası. Vanilla JS + Chart.js. Frontend için npm/webpack/vite yok.
 
-## Sayfalar
+## Ne sunuyor
 
-| Sayfa | Yol | İçerik |
-|-------|-----|--------|
-| Ana Dashboard | `/` | Kasa, banka, döviz — KPI'lar + grafikler |
-| Kredi Portföyü | `/kredi` | Kredi/leasing/teminat mektubu takibi, tarayıcıda (client-side) Excel parse |
-| Ödeme Takip Panosu | `/odeme-takip` | Bekleyen/gelecek ödemeler, filtreler, takvim görünümü, gelir beklentileri |
-| Nakit Raporu | `/nakit-rapor` | Dönemsel nakit pozisyonu, bütçe planlama (6 ay/1 yıl), anomali + tekrarlayan kalem tespiti |
+Standart bir masaüstü uygulaması değil — **tarayıcıdan açılan bir web
+uygulaması**. Kurulum gerektirmez, herkes aynı anda kendi bilgisayarından
+veya telefonundan aynı adrese girer; hepsi aynı canlı veriyi görür. 4 sayfası
+var:
+
+**Ana Dashboard** (`/`) — Kasadaki nakit, banka hesap bakiyeleri
+(kullanılabilir ve bloke ayrı ayrı) ve güncel döviz kurları tek ekranda.
+KPI kartları ve trend grafikleriyle "bugün elimizde ne var" sorusunun
+cevabı tek bakışta.
+
+**Kredi Portföyü** (`/kredi`) — Şirketin kullandığı kredi, leasing ve
+teminat mektuplarının tamamı tek listede: kalan bakiye, vade, hangi
+yükümlülüğün ne durumda olduğu — muhasebeye sormaya gerek kalmadan.
+
+**Ödeme Takip Panosu** (`/odeme-takip`) — Yaklaşan ve geciken ödemeler
+takvim görünümünde; bu hafta/gelecek ay hangi ödemelerin çıkacağını
+filtreleyerek görün. Beklenen gelirler de aynı ekranda.
+
+**Nakit Raporu** (`/nakit-rapor`) — Önümüzdeki 6 ay ile 1 yıl için nakit
+pozisyonu projeksiyonu; sistem geçmiş hareketlere bakarak olağandışı
+(anomali) harcamaları ve düzenli tekrar eden kalemleri (kira, taksit gibi)
+kendiliğinden işaretler.
+
+### Faydaları
+
+- **Tek bakışta güncel durum** — Excel dosyasını açıp satır satır
+  taramaya gerek yok
+- **Herkes aynı anda bakabilir** — muhasebe Excel'i düzenlerken yönetim
+  aynı anda, başka bir bilgisayardan canlı veriyi izleyebilir; dosya
+  "kilitli, açılamıyor" derdi yok
+- **Anında güncellenir** — muhasebe kaydı kaydettiği an (birkaç saniye
+  içinde) açık tüm ekranlar kendiliğinden yenilenir, "yenile" tuşuna
+  basmaya gerek yok
+- **Tek doğruluk kaynağı korunur** — veri hâlâ Excel'de tutulur, çift
+  giriş veya senkron sorunu yok; dashboard sadece üzerine bakılan bir
+  pencere
+- **Öngörü sağlar** — Nakit Raporu geçmişe değil geleceğe bakar: önümüzdeki
+  aylarda nakit sıkışıklığı olur mu, olağandışı bir harcama var mı,
+  otomatik uyarır
+- **Her yerden erişim** — sadece bir tarayıcı yeterli; PWA desteğiyle
+  "ana ekrana ekle" ile telefondan da kullanılabilir
 
 ## Mimari
 
@@ -80,7 +115,7 @@ komutla tüm PC'lerdeki sunucuları durdurmaya/yeniden başlatmaya yarar — bu
 mod için `kurulum.bat` / `durdur_hepsi.bat` / `trigger_yenile.bat` betikleri
 kullanılır.
 
-## Özellikler
+## Teknik özellikler
 
 - **Gerçek zamanlı güncelleme** — Excel kaydedildiği anda WebSocket ile tüm bağlı tarayıcılara push (3 sn debounce, `~$` lock dosyalarını yoksay)
 - **HTTP Basic Auth** — `KASA_USER` / `KASA_PASS` env var'ları ile koruma (`secrets.compare_digest` — timing attack korumalı)
